@@ -25,12 +25,8 @@ struct SerializedFileParser {
         guard !metadataEnd.overflow, metadataEnd.partialValue <= UInt64(data.count) else {
             throw SerializedFileError.malformed("invalid metadata range")
         }
-        let dataEnd = header.dataOffset.addingReportingOverflow(Int64(header.fileSize))
         guard header.dataOffset >= 0, header.dataOffset <= Int64(data.count) else {
             throw SerializedFileError.malformed("invalid data offset")
-        }
-        if header.fileSize > 0, (!dataEnd.overflow && dataEnd.partialValue < header.dataOffset) {
-            throw SerializedFileError.malformed("invalid file size")
         }
         reader.offset = Int(header.metadataStart)
         let metadata = try reader.readMetadata(version: header.version)
@@ -132,8 +128,10 @@ private struct SerializedReader {
             let largeFileSize = try readInt64()
             let largeDataOffset = try readInt64()
             try skip(8)
+            bigEndian = endianFlag != 0
             return SerializedHeader(metadataSize: largeMetadataSize, fileSize: largeFileSize, version: version, dataOffset: largeDataOffset, metadataStart: UInt64(offset), bigEndian: endianFlag != 0)
         }
+        bigEndian = endianFlag != 0
         return SerializedHeader(metadataSize: metadataSize, fileSize: fileSize, version: version, dataOffset: dataOffset, metadataStart: UInt64(offset), bigEndian: endianFlag != 0)
     }
 
@@ -161,14 +159,7 @@ private struct SerializedReader {
                     try skip(16)
                     let typeTreeSize = try readInt32()
                     guard typeTreeSize >= 0 else { throw SerializedFileError.malformed("invalid type tree size") }
-                    if typeTreeSize == 0 {
-                        typeTree = nil
-                    } else {
-                        let typeTreeEnd = offset + Int(typeTreeSize)
-                        guard typeTreeEnd >= offset, typeTreeEnd <= data.count else { throw SerializedFileError.malformed("type tree exceeds metadata") }
-                        typeTree = try readTypeTree(version: version, end: typeTreeEnd)
-                        if offset != typeTreeEnd { offset = typeTreeEnd }
-                    }
+                    typeTree = typeTreeSize == 0 ? nil : try readTypeTree(version: version)
                 } else {
                     typeTree = try readTypeTree(version: version)
                 }
@@ -246,9 +237,9 @@ private struct SerializedReader {
                 try skip(16)
                 let typeTreeSize = try readInt32()
                 guard typeTreeSize >= 0 else { throw SerializedFileError.malformed("invalid reference type tree size") }
-                if typeTreeSize > 0 { try skip(Int64(typeTreeSize)) }
+                if typeTreeSize > 0 { _ = try readTypeTree(version: version) }
             } else {
-                try readTypeTree(version: version)
+                _ = try readTypeTree(version: version)
             }
             if version >= 21 {
                 _ = try readCString()
