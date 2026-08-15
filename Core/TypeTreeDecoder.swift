@@ -69,7 +69,7 @@ struct TypeTreeDecoder {
                         fields.append(contentsOf: makeField(path: "\(path)[\(index)]", type: child.type, value: String(byte), depth: depth + 1, fieldCount: &fieldCount))
                     }
                 } else {
-                    fields.append(contentsOf: makeField(path: "\(path)[…]", type: child.type, value: "\(count - maxArrayItems) additional items hidden", depth: depth + 1, fieldCount: &fieldCount))
+                    fields.append(contentsOf: makeField(path: "\(path)[…]", type: child.type, value: "\(Int(count) - maxArrayItems) additional items hidden", depth: depth + 1, fieldCount: &fieldCount))
                 }
                 return fields
             }
@@ -80,7 +80,7 @@ struct TypeTreeDecoder {
             }
             if node.isAligned { try reader.align4() }
             if count > maxArrayItems {
-                fields.append(contentsOf: makeField(path: "\(path)[…]", type: child.type, value: "\(count - maxArrayItems) additional items hidden", depth: depth + 1, fieldCount: &fieldCount))
+                fields.append(contentsOf: makeField(path: "\(path)[…]", type: child.type, value: "\(Int(count) - maxArrayItems) additional items hidden", depth: depth + 1, fieldCount: &fieldCount))
             }
             return fields
         }

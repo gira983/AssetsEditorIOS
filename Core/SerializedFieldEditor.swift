@@ -33,8 +33,7 @@ struct SerializedFieldEditor {
         guard reader.data.count == session.data.count else {
             throw SerializedFieldEditError.objectSizeChanged
         }
-        data = reader.data
-        return data
+        return reader.data
     }
 
     func currentValue(for field: SerializedObjectField, object: SerializedObjectInfo, in session: SerializedFileSession) throws -> String {
