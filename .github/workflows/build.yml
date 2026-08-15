@@ -82,7 +82,7 @@ jobs:
           APP="$RUNNER_TEMP/UnityAssetEditor.xcarchive/Products/Applications/UnityAssetEditor.app"
           test -d "$APP"
           test -x "$APP/UnityAssetEditor"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "com.example.UnityAssetEditor"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "com.gira983.UnityAssetEditor"
           rm -rf "$RUNNER_TEMP/ipa"
           mkdir -p "$RUNNER_TEMP/ipa/Payload"
           cp -R "$APP" "$RUNNER_TEMP/ipa/Payload/"
