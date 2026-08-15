@@ -92,7 +92,7 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A10000000000000000000061 /* UnityAssetEditor */ = {isa = PBXNativeTarget; buildConfigurationList = A10000000000000000000072; buildPhases = (A10000000000000000000042, A10000000000000000000041, A10000000000000000000043,); buildRules = (); dependencies = (); name = UnityAssetEditor; productName = UnityAssetEditor; productReference = A10000000000000000000031; productType = "com.apple.product-type.application"; };
+		A10000000000000000000061 /* UnityAssetEditor */ = {isa = PBXNativeTarget; buildConfigurationList = A10000000000000000000071; buildPhases = (A10000000000000000000042, A10000000000000000000041, A10000000000000000000043,); buildRules = (); dependencies = (); name = UnityAssetEditor; productName = UnityAssetEditor; productReference = A10000000000000000000031; productType = "com.apple.product-type.application"; };
 		A10000000000000000000063 /* UnityAssetEditorTests */ = {isa = PBXNativeTarget; buildConfigurationList = A10000000000000000000073; buildPhases = (A10000000000000000000045, A10000000000000000000044, A10000000000000000000046,); buildRules = (); dependencies = (A10000000000000000000064,); name = UnityAssetEditorTests; productName = UnityAssetEditorTests; productReference = A10000000000000000000032; productType = "com.apple.product-type.bundle.unit-test"; };
 /* End PBXNativeTarget section */
 
