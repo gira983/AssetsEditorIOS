@@ -364,7 +364,8 @@ private struct SerializedReader {
 
     mutating func readUInt32() throws -> UInt32 {
         let bytes = try [readUInt8(), readUInt8(), readUInt8(), readUInt8()]
-        if bigEndian { return bytes.reduce(0) { ($0 << 8) | UInt32($1) } }
+        if bigEndian { return bytes.reduce(0) { ($0 << 8) | UInt32($1) }
+        }
         return bytes.reversed().reduce(0) { ($0 << 8) | UInt32($1) }
     }
 
@@ -372,7 +373,8 @@ private struct SerializedReader {
 
     mutating func readUInt64() throws -> UInt64 {
         let bytes = try (0..<8).map { _ in try readUInt8() }
-        if bigEndian { return bytes.reduce(0) { ($0 << 8) | UInt64($1) } }
+        if bigEndian { return bytes.reduce(0) { ($0 << 8) | UInt64($1) }
+        }
         return bytes.enumerated().reduce(0) { $0 | (UInt64($1.element) << (UInt64($1.offset) * 8)) }
     }
 
