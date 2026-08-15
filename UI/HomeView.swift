@@ -201,7 +201,7 @@ struct HomeView: View {
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: entry.isSerialized ? "doc.text" : "doc")
-                            .foregroundStyle(entry.isSerialized ? .tint : .secondary)
+                            .foregroundStyle(entry.isSerialized ? Color.accentColor : Color.secondary)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(entry.name)
                                 .lineLimit(1)

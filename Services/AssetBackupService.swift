@@ -27,6 +27,10 @@ struct AssetBackupService {
     func backupURL(for fileURL: URL) -> URL {
         fileURL.appendingPathExtension("backup")
     }
+
+    func hasBackup(for fileURL: URL) -> Bool {
+        fileManager.fileExists(atPath: backupURL(for: fileURL).path)
+    }
 }
 
 enum AssetBackupError: LocalizedError {

@@ -39,6 +39,7 @@ final class HomeViewModel: ObservableObject {
     private let transaction: SerializedFileTransaction
     private var cancellables = Set<AnyCancellable>()
 
+    @MainActor
     init(
         fileImporter: FileImporter = FileImporter(),
         recentFilesStore: RecentFilesStore = RecentFilesStore(),
@@ -278,7 +279,7 @@ final class HomeViewModel: ObservableObject {
         }
         let field = selectedObjectFields.first(where: { $0.name == entry.fieldName }) ?? SerializedObjectField(id: entry.fieldName, name: entry.fieldName, type: entry.fieldType, value: value, depth: 0, editable: true)
         do {
-            try backend.updateField(field.withValue(value), for: object, in: file.sandboxURL, transaction: transaction)
+            try backend.updateField(SerializedObjectField(id: field.id, name: field.name, type: field.type, value: value, depth: field.depth, editable: field.editable), for: object, in: file.sandboxURL, transaction: transaction)
             if moving == .undo { historyStore.pushRedo(entry) } else { historyStore.pushUndo(entry) }
             syncHistoryState()
             refreshSelectedObject()
