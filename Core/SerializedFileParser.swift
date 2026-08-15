@@ -9,31 +9,38 @@ struct SerializedFileParser {
             throw SerializedFileError.malformed("could not read file")
         }
         guard data.count >= 20 else { throw SerializedFileError.notSerializedFile }
-
         var reader = SerializedReader(data: data)
-        let header = try reader.readHeader()
-        guard header.version <= 99 else { throw SerializedFileError.notSerializedFile }
-        guard header.metadataStart <= UInt64(data.count), header.metadataSize <= UInt64(data.count) else {
-            throw SerializedFileError.malformed("invalid metadata header")
+        let header: SerializedHeader
+        do {
+            header = try reader.readHeader()
+        } catch let error as SerializedFileError {
+            throw error
+        } catch {
+            throw SerializedFileError.notSerializedFile
         }
+        guard header.metadataStart <= UInt64(data.count) else {
+            throw SerializedFileError.malformed("invalid metadata start")
+        }
+        let metadataEnd = header.metadataStart.addingReportingOverflow(header.metadataSize)
+        guard !metadataEnd.overflow, metadataEnd.partialValue <= UInt64(data.count) else {
+            throw SerializedFileError.malformed("invalid metadata range")
+        }
+        let dataEnd = header.dataOffset.addingReportingOverflow(Int64(header.fileSize))
         guard header.dataOffset >= 0, header.dataOffset <= Int64(data.count) else {
             throw SerializedFileError.malformed("invalid data offset")
         }
-        if header.fileSize > 0, header.fileSize < Int64(data.count) {
-            throw SerializedFileError.malformed("header file size is smaller than the file")
+        if header.fileSize > 0, (!dataEnd.overflow && dataEnd.partialValue < header.dataOffset) {
+            throw SerializedFileError.malformed("invalid file size")
         }
-
         reader.offset = Int(header.metadataStart)
         let metadata = try reader.readMetadata(version: header.version)
-        let metadataEnd = header.metadataStart + header.metadataSize
-        guard metadataEnd <= UInt64(data.count), UInt64(reader.offset) <= metadataEnd else {
-            throw SerializedFileError.malformed("metadata exceeds declared range")
+        guard reader.offset <= Int(metadataEnd.partialValue) else {
+            throw SerializedFileError.malformed("metadata exceeds declared size")
         }
-
         let objects = metadata.objects.map { record in
             let typeName = unityTypeName(record.typeID)
             let absoluteOffset = header.dataOffset.addingReportingOverflow(record.byteOffset)
-            let resolvedOffset = absoluteOffset.overflow ? Int64.max : absoluteOffset.partialValue
+            let resolvedOffset = absoluteOffset.overflow ? header.dataOffset : absoluteOffset.partialValue
             return SerializedObjectInfo(id: "\(record.pathID)", pathID: record.pathID, typeID: record.typeID, byteOffset: UInt64(max(0, resolvedOffset)), byteSize: record.byteSize, typeName: typeName, displayName: "\(typeName) · \(record.pathID)")
         }
         return SerializedFileSession(data: data, info: SerializedFileInfo(formatVersion: header.version, fileSize: UInt64(max(0, header.fileSize)), metadataSize: UInt64(header.metadataSize), dataOffset: UInt64(max(0, header.dataOffset)), unityVersion: metadata.unityVersion, targetPlatform: metadata.targetPlatform, objectCount: objects.count, typeCount: metadata.typeCount, externalCount: metadata.externalCount, isBigEndian: header.bigEndian), objects: objects, objectRecords: metadata.objects, typeRecords: metadata.typeRecords, typeTreeEnabled: metadata.typeTreeEnabled, header: header)
@@ -119,7 +126,7 @@ private struct SerializedReader {
         let dataOffset = Int64(try readUInt32())
         let endianFlag = try readUInt8()
         try skip(3)
-        bigEndian = endianFlag != 0
+        bigEndian = true
         if version >= 22 {
             let largeMetadataSize = UInt64(try readUInt32())
             let largeFileSize = try readInt64()
@@ -158,9 +165,9 @@ private struct SerializedReader {
                         typeTree = nil
                     } else {
                         let typeTreeEnd = offset + Int(typeTreeSize)
-                        guard typeTreeEnd >= offset, typeTreeEnd <= data.count else { throw SerializedFileError.malformed("type tree exceeds file") }
+                        guard typeTreeEnd >= offset, typeTreeEnd <= data.count else { throw SerializedFileError.malformed("type tree exceeds metadata") }
                         typeTree = try readTypeTree(version: version, end: typeTreeEnd)
-                        if offset < typeTreeEnd { offset = typeTreeEnd }
+                        if offset != typeTreeEnd { offset = typeTreeEnd }
                     }
                 } else {
                     typeTree = try readTypeTree(version: version)
