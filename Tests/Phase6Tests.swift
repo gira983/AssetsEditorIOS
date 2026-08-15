@@ -5,7 +5,7 @@ final class Phase6Tests: XCTestCase {
     func testLZ4DecoderExpandsRepeatedMatch() throws {
         let compressed = Data([0x32, 0x61, 0x62, 0x63, 0x03, 0x00])
         let output = try LZ4DecoderTestAccess.decode(compressed, expectedSize: 9)
-        XCTAssertEqual(output, Data("abcabcabc", encoding: .utf8))
+        XCTAssertEqual(output, Data([0x61, 0x62, 0x63, 0x61, 0x62, 0x63, 0x61, 0x62, 0x63]))
     }
 
     func testLZ4DecoderRejectsWrongOutputSize() {
