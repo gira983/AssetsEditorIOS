@@ -60,8 +60,8 @@ final class HomeViewModel: ObservableObject {
         self.rawObjectDataProvider = rawObjectDataProvider
         self.transaction = transaction
         self.historyStore = historyStore ?? EditorHistoryStore()
-        recentFiles = recentFilesStore.files
-        historyStore.objectWillChange.sink { [weak self] _ in
+        recentFiles = self.recentFilesStore.files
+        self.historyStore.objectWillChange.sink { [weak self] _ in
             Task { @MainActor in self?.syncHistoryState() }
         }.store(in: &cancellables)
     }
