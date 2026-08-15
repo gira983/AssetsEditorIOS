@@ -9,42 +9,81 @@ struct SerializedFileParser {
             throw SerializedFileError.malformed("could not read file")
         }
         guard data.count >= 20 else { throw SerializedFileError.notSerializedFile }
+
         var reader = SerializedReader(data: data)
-        let header = try reader.readHeader()
-        guard header.metadataStart <= UInt64(data.count) else {
-            throw SerializedFileError.malformed("metadata header exceeds file")
+        let header: SerializedHeader
+        do {
+            header = try reader.readHeader()
+        } catch let error as SerializedFileError {
+            throw error
+        } catch {
+            throw SerializedFileError.notSerializedFile
         }
-        guard header.metadataSize <= UInt64(data.count) - header.metadataStart else {
-            throw SerializedFileError.malformed("metadata size exceeds file")
-        }
-        guard header.dataOffset >= 0, header.dataOffset <= Int64(data.count) else {
+
+        guard header.metadataStart <= UInt64(data.count),
+              header.dataOffset >= Int64(header.metadataStart),
+              header.dataOffset <= Int64(data.count) else {
             throw SerializedFileError.malformed("invalid header offsets")
         }
-        guard header.fileSize >= Int64(header.dataOffset), header.fileSize <= Int64(data.count) || header.fileSize == 0 else {
-            throw SerializedFileError.malformed("header file size exceeds actual file")
-        }
-        let metadataEnd = Int(header.metadataStart + header.metadataSize)
+
         reader.offset = Int(header.metadataStart)
-        let metadata = try reader.readMetadata(version: header.version, metadataEnd: metadataEnd)
-        guard reader.offset <= metadataEnd else {
-            throw SerializedFileError.malformed("metadata parser crossed declared boundary")
+        let metadata = try reader.readMetadata(version: header.version)
+        guard reader.offset <= Int(header.dataOffset) else {
+            throw SerializedFileError.malformed("metadata exceeds data offset")
         }
+
+        let reportedFileSize = header.fileSize > 0 ? UInt64(header.fileSize) : UInt64(data.count)
         let objects = metadata.objects.map { record in
             let typeName = unityTypeName(record.typeID)
-            let absoluteOffset = header.dataOffset.addingReportingOverflow(record.byteOffset)
-            let resolvedOffset = absoluteOffset.overflow ? Int64.max : absoluteOffset.partialValue
-            return SerializedObjectInfo(id: "\(record.pathID)", pathID: record.pathID, typeID: record.typeID, byteOffset: UInt64(max(0, resolvedOffset)), byteSize: record.byteSize, typeName: typeName, displayName: "\(typeName) · \(record.pathID)")
+            let absoluteOffset = header.dataOffset + record.byteOffset
+            return SerializedObjectInfo(
+                id: "\(record.pathID)",
+                pathID: record.pathID,
+                typeID: record.typeID,
+                byteOffset: UInt64(max(0, absoluteOffset)),
+                byteSize: record.byteSize,
+                typeName: typeName,
+                displayName: "\(typeName) · \(record.pathID)"
+            )
         }
-        return SerializedFileSession(data: data, info: SerializedFileInfo(formatVersion: header.version, fileSize: UInt64(max(0, header.fileSize)), metadataSize: UInt64(header.metadataSize), dataOffset: UInt64(max(0, header.dataOffset)), unityVersion: metadata.unityVersion, targetPlatform: metadata.targetPlatform, objectCount: objects.count, typeCount: metadata.typeCount, externalCount: metadata.externalCount, isBigEndian: header.bigEndian), objects: objects, objectRecords: metadata.objects, typeRecords: metadata.typeRecords, typeTreeEnabled: metadata.typeTreeEnabled, header: header)
+
+        return SerializedFileSession(
+            data: data,
+            info: SerializedFileInfo(
+                formatVersion: header.version,
+                fileSize: reportedFileSize,
+                metadataSize: UInt64(header.metadataSize),
+                dataOffset: UInt64(header.dataOffset),
+                unityVersion: metadata.unityVersion,
+                targetPlatform: metadata.targetPlatform,
+                objectCount: objects.count,
+                typeCount: metadata.typeCount,
+                externalCount: metadata.externalCount,
+                isBigEndian: header.bigEndian
+            ),
+            objects: objects,
+            objectRecords: metadata.objects,
+            typeRecords: metadata.typeRecords,
+            typeTreeEnabled: metadata.typeTreeEnabled,
+            header: header
+        )
     }
 
     func fields(for object: SerializedObjectInfo, in session: SerializedFileSession) throws -> [SerializedObjectField] {
-        guard let record = session.objectRecords.first(where: { $0.pathID == object.pathID }) else { throw SerializedFileError.malformed("object not found") }
+        guard let record = session.objectRecords.first(where: { $0.pathID == object.pathID }) else {
+            throw SerializedFileError.malformed("object not found")
+        }
         let start = Int(object.byteOffset)
         let objectSize = Int(record.byteSize)
-        guard objectSize >= 0, start >= 0, start <= session.data.count, objectSize <= session.data.count - start else { throw SerializedFileError.malformed("object range exceeds file") }
+        guard objectSize >= 0, start >= 0, start <= session.data.count, objectSize <= session.data.count - start else {
+            throw SerializedFileError.malformed("object range exceeds file")
+        }
         let end = start + objectSize
-        if session.typeTreeEnabled, let typeRecord = session.typeRecords.first(where: { $0.typeID == record.typeID && ($0.scriptTypeIndex == record.scriptTypeIndex || record.typeID != 114) }), let root = typeRecord.typeTree {
+        if session.typeTreeEnabled,
+           let typeRecord = session.typeRecords.first(where: {
+               $0.typeID == record.typeID && ($0.scriptTypeIndex == record.scriptTypeIndex || record.typeID != 114)
+           }),
+           let root = typeRecord.typeTree {
             return try TypeTreeDecoder(bigEndian: session.header.bigEndian).decode(data: session.data, start: start, end: end, root: root)
         }
         return fallbackFields(for: record, start: start, end: end, data: session.data)
@@ -83,7 +122,6 @@ struct SerializedHeader {
 private struct SerializedMetadata {
     let unityVersion: String
     let targetPlatform: UInt32
-    let typeIDsByIndex: [Int32]
     let typeCount: Int
     let objects: [ObjectRecord]
     let externalCount: Int
@@ -113,23 +151,24 @@ private struct SerializedReader {
 
     mutating func readHeader() throws -> SerializedHeader {
         let metadataSize = UInt64(try readUInt32())
-        let fileSize32 = UInt64(try readUInt32())
+        let fileSize = Int64(try readUInt32())
         let version = try readUInt32()
-        let dataOffset32 = UInt64(try readUInt32())
+        let dataOffset = Int64(try readUInt32())
         let endianFlag = try readUInt8()
         try skip(3)
-        bigEndian = endianFlag != 0
         if version >= 22 {
             let largeMetadataSize = UInt64(try readUInt32())
             let largeFileSize = try readInt64()
             let largeDataOffset = try readInt64()
             try skip(8)
+            bigEndian = endianFlag != 0
             return SerializedHeader(metadataSize: largeMetadataSize, fileSize: largeFileSize, version: version, dataOffset: largeDataOffset, metadataStart: UInt64(offset), bigEndian: endianFlag != 0)
         }
-        return SerializedHeader(metadataSize: metadataSize, fileSize: Int64(fileSize32), version: version, dataOffset: Int64(dataOffset32), metadataStart: UInt64(offset), bigEndian: endianFlag != 0)
+        bigEndian = endianFlag != 0
+        return SerializedHeader(metadataSize: metadataSize, fileSize: fileSize, version: version, dataOffset: dataOffset, metadataStart: UInt64(offset), bigEndian: endianFlag != 0)
     }
 
-    mutating func readMetadata(version: UInt32, metadataEnd: Int) throws -> SerializedMetadata {
+    mutating func readMetadata(version: UInt32) throws -> SerializedMetadata {
         let metadataStart = offset
         let unityVersion = try readCString()
         let targetPlatform = try readUInt32()
@@ -139,6 +178,7 @@ private struct SerializedReader {
         var typeRecords: [SerializedTypeRecord] = []
         typeIDsByIndex.reserveCapacity(typeCount)
         typeRecords.reserveCapacity(typeCount)
+
         for _ in 0..<typeCount {
             let typeID = try readInt32()
             if version >= 16 { _ = try readUInt8() }
@@ -147,20 +187,14 @@ private struct SerializedReader {
                 try skip(16)
             }
             try skip(16)
+
             let typeTree: TypeTreeNodeRecord?
             if typeTreeEnabled {
                 if version >= 23 {
                     try skip(16)
                     let typeTreeSize = try readInt32()
                     guard typeTreeSize >= 0 else { throw SerializedFileError.malformed("invalid type tree size") }
-                    if typeTreeSize == 0 {
-                        typeTree = nil
-                    } else {
-                        let typeTreeEnd = offset + Int(typeTreeSize)
-                        guard typeTreeEnd >= offset, typeTreeEnd <= metadataEnd else { throw SerializedFileError.malformed("type tree exceeds metadata") }
-                        typeTree = try readTypeTree(version: version, end: typeTreeEnd)
-                        if offset != typeTreeEnd { offset = typeTreeEnd }
-                    }
+                    typeTree = typeTreeSize == 0 ? nil : try readTypeTree(version: version)
                 } else {
                     typeTree = try readTypeTree(version: version)
                 }
@@ -171,9 +205,11 @@ private struct SerializedReader {
             } else {
                 typeTree = nil
             }
+
             typeIDsByIndex.append(typeID)
             typeRecords.append(SerializedTypeRecord(typeID: typeID, scriptTypeIndex: scriptTypeIndex, typeTree: typeTree))
         }
+
         let objectCount = try readCount(maximum: 10_000_000, label: "object")
         try align(4)
         var objects: [ObjectRecord] = []
@@ -183,26 +219,35 @@ private struct SerializedReader {
             let pathID = version >= 14 ? try readInt64() : Int64(try readUInt32())
             let byteOffset = version >= 22 ? try readInt64() : Int64(try readUInt32())
             let byteSize = try readUInt32()
-            let typeIndexOrID: Int32
+            let typeIndexOrID = try readInt32()
             let typeID: Int32
-            if version >= 16 {
-                typeIndexOrID = try readInt32()
-                typeID = typeIndexOrID >= 0 && Int(typeIndexOrID) < typeIDsByIndex.count ? typeIDsByIndex[Int(typeIndexOrID)] : typeIndexOrID
+            if version >= 16, typeIndexOrID >= 0, Int(typeIndexOrID) < typeIDsByIndex.count {
+                typeID = typeIDsByIndex[Int(typeIndexOrID)]
             } else {
-                typeID = Int32(try readUInt16())
-                typeIndexOrID = typeID
+                typeID = typeIndexOrID
             }
-            if version <= 16 { _ = try readUInt16() }
+
+            if version <= 15 { _ = try readUInt16() }
+            let objectScriptTypeIndex: UInt16
+            if version <= 16 {
+                objectScriptTypeIndex = try readUInt16()
+            } else if typeIndexOrID >= 0, Int(typeIndexOrID) < typeRecords.count {
+                objectScriptTypeIndex = typeRecords[Int(typeIndexOrID)].scriptTypeIndex
+            } else {
+                objectScriptTypeIndex = UInt16.max
+            }
             if version >= 15 && version <= 16 { _ = try readUInt8() }
-            let scriptTypeIndex = version >= 17 && typeIndexOrID >= 0 && Int(typeIndexOrID) < typeRecords.count ? typeRecords[Int(typeIndexOrID)].scriptTypeIndex : UInt16.max
-            objects.append(ObjectRecord(pathID: pathID, byteOffset: byteOffset, byteSize: byteSize, typeIndex: Int(typeIndexOrID), typeID: typeID, scriptTypeIndex: scriptTypeIndex))
+
+            objects.append(ObjectRecord(pathID: pathID, byteOffset: byteOffset, byteSize: byteSize, typeIndex: Int(typeIndexOrID), typeID: typeID, scriptTypeIndex: objectScriptTypeIndex))
         }
+
         let scriptCount = try readCount(maximum: 1_000_000, label: "script")
         for _ in 0..<scriptCount {
             _ = try readInt32()
             try align(4)
             _ = try readInt64()
         }
+
         let externalCount = try readCount(maximum: 1_000_000, label: "external")
         for _ in 0..<externalCount {
             _ = try readCString()
@@ -210,13 +255,18 @@ private struct SerializedReader {
             _ = try readInt32()
             _ = try readCString()
         }
+
         if version >= 20 {
             let refTypeCount = try readCount(maximum: 1_000_000, label: "reference type")
-            for _ in 0..<refTypeCount { try skipReferenceTypeRecord(version: version, typeTreeEnabled: typeTreeEnabled) }
+            for _ in 0..<refTypeCount {
+                try skipReferenceTypeRecord(version: version, typeTreeEnabled: typeTreeEnabled)
+            }
         }
         if version >= 5 { _ = try readCString() }
-        guard offset - metadataStart <= data.count else { throw SerializedFileError.malformed("metadata exceeds file") }
-        return SerializedMetadata(unityVersion: unityVersion, targetPlatform: targetPlatform, typeIDsByIndex: typeIDsByIndex, typeCount: typeCount, objects: objects, externalCount: externalCount, typeTreeEnabled: typeTreeEnabled, typeRecords: typeRecords)
+        guard offset >= metadataStart, offset <= data.count else {
+            throw SerializedFileError.malformed("metadata exceeds file")
+        }
+        return SerializedMetadata(unityVersion: unityVersion, targetPlatform: targetPlatform, typeCount: typeCount, objects: objects, externalCount: externalCount, typeTreeEnabled: typeTreeEnabled, typeRecords: typeRecords)
     }
 
     mutating func readCount(maximum: Int, label: String) throws -> Int {
@@ -238,9 +288,9 @@ private struct SerializedReader {
                 try skip(16)
                 let typeTreeSize = try readInt32()
                 guard typeTreeSize >= 0 else { throw SerializedFileError.malformed("invalid reference type tree size") }
-                if typeTreeSize > 0 { try skip(Int64(typeTreeSize)) }
+                if typeTreeSize > 0 { _ = try readTypeTree(version: version) }
             } else {
-                try readTypeTree(version: version)
+                _ = try readTypeTree(version: version)
             }
             if version >= 21 {
                 _ = try readCString()
@@ -250,7 +300,7 @@ private struct SerializedReader {
         }
     }
 
-    mutating func readTypeTree(version: UInt32, end: Int? = nil) throws -> TypeTreeNodeRecord? {
+    mutating func readTypeTree(version: UInt32) throws -> TypeTreeNodeRecord? {
         if version >= 23 {
             let magic = try readUInt32()
             guard magic == 0x7474686d else { throw SerializedFileError.malformed("invalid extended type tree header") }
@@ -283,7 +333,6 @@ private struct SerializedReader {
         let resolved = flatNodes.enumerated().map { index, node in
             TypeTreeNodeRecord(type: resolveTypeTreeString(offset: typeOffsets[index], local: stringTable), name: resolveTypeTreeString(offset: nameOffsets[index], local: stringTable), level: node.level, flags: node.flags, metaFlags: node.metaFlags, children: [])
         }
-        if let end, offset > end { throw SerializedFileError.malformed("type tree exceeds declared size") }
         return TypeTreeNodeRecord.tree(from: resolved)
     }
 
@@ -339,7 +388,9 @@ private struct SerializedReader {
     }
 
     mutating func skip(_ count: Int64) throws {
-        guard offset >= 0, offset <= data.count, count >= 0, count <= Int64(data.count - offset) else { throw SerializedFileError.malformed("invalid skip") }
+        guard offset >= 0, offset <= data.count, count >= 0, count <= Int64(data.count - offset) else {
+            throw SerializedFileError.malformed("invalid skip")
+        }
         offset += Int(count)
     }
 
