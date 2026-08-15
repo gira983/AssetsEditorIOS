@@ -155,7 +155,7 @@ private struct SerializedReader {
                         let typeTreeEnd = offset + Int(typeTreeSize)
                         guard typeTreeEnd >= offset, typeTreeEnd <= data.count else { throw SerializedFileError.malformed("type tree exceeds metadata") }
                         typeTree = try readTypeTree(version: version, end: typeTreeEnd)
-                        guard offset == typeTreeEnd else { offset = typeTreeEnd }
+                        if offset != typeTreeEnd { offset = typeTreeEnd }
                     }
                 } else {
                     typeTree = try readTypeTree(version: version)
