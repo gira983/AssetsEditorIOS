@@ -29,7 +29,6 @@ struct EditorHistoryEntry: Identifiable, Codable, Hashable {
     }
 }
 
-@MainActor
 final class EditorHistoryStore: ObservableObject {
     private(set) var undoStack: [EditorHistoryEntry] = []
     private(set) var redoStack: [EditorHistoryEntry] = []
