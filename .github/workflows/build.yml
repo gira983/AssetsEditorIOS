@@ -78,9 +78,16 @@ jobs:
 
       - name: Package unsigned IPA
         run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/UnityAssetEditor.xcarchive/Products/Applications/UnityAssetEditor.app"
+          test -d "$APP"
+          test -x "$APP/UnityAssetEditor"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "com.example.UnityAssetEditor"
+          rm -rf "$RUNNER_TEMP/ipa"
           mkdir -p "$RUNNER_TEMP/ipa/Payload"
-          cp -R "$RUNNER_TEMP/UnityAssetEditor.xcarchive/Products/Applications/UnityAssetEditor.app" "$RUNNER_TEMP/ipa/Payload/"
+          cp -R "$APP" "$RUNNER_TEMP/ipa/Payload/"
           /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/ipa/Payload" "$RUNNER_TEMP/UnityAssetEditor-unsigned.ipa"
+          unzip -t "$RUNNER_TEMP/UnityAssetEditor-unsigned.ipa"
 
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
