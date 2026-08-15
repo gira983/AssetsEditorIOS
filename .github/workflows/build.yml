@@ -76,22 +76,30 @@ jobs:
           CODE_SIGNING_REQUIRED=NO
           archive
 
-      - name: Package unsigned IPA
+      - name: Add TrollStore-compatible ad hoc signature
         run: |
-          set -euo pipefail
-          APP="$RUNNER_TEMP/UnityAssetEditor.xcarchive/Products/Applications/UnityAssetEditor.app"
-          test -d "$APP"
-          test -x "$APP/UnityAssetEditor"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "com.gira983.UnityAssetEditor"
-          rm -rf "$RUNNER_TEMP/ipa"
-          mkdir -p "$RUNNER_TEMP/ipa/Payload"
-          cp -R "$APP" "$RUNNER_TEMP/ipa/Payload/"
-          /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/ipa/Payload" "$RUNNER_TEMP/UnityAssetEditor-unsigned.ipa"
-          unzip -t "$RUNNER_TEMP/UnityAssetEditor-unsigned.ipa"
+          APP_PATH="$RUNNER_TEMP/UnityAssetEditor.xcarchive/Products/Applications/UnityAssetEditor.app"
+          ENTITLEMENTS="$RUNNER_TEMP/empty.entitlements"
+          cat > "$ENTITLEMENTS" <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict/>
+          </plist>
+          PLIST
+          /usr/bin/codesign --force --sign - --timestamp=none --entitlements "$ENTITLEMENTS" "$APP_PATH"
+          /usr/bin/codesign --verify --verbose=4 "$APP_PATH"
+          /usr/bin/codesign --display --verbose=4 "$APP_PATH"
 
-      - name: Upload unsigned IPA
+      - name: Package IPA
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/UnityAssetEditor.xcarchive/Products/Applications/UnityAssetEditor.app" "$RUNNER_TEMP/ipa/Payload/"
+          /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/ipa/Payload" "$RUNNER_TEMP/UnityAssetEditor.ipa"
+
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: UnityAssetEditor-unsigned-ipa
-          path: ${{ runner.temp }}/UnityAssetEditor-unsigned.ipa
+          name: UnityAssetEditor-ipa
+          path: ${{ runner.temp }}/UnityAssetEditor.ipa
           if-no-files-found: error
