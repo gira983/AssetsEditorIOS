@@ -37,28 +37,54 @@ jobs:
       - name: List available schemes
         run: xcodebuild -list -project UnityAssetEditor.xcodeproj
 
-      - name: Build for iOS Simulator
+      - name: Build for iOS device
         run: >-
           xcodebuild
           -project UnityAssetEditor.xcodeproj
           -scheme UnityAssetEditor
-          -sdk iphonesimulator
+          -sdk iphoneos
           -configuration Debug
-          -destination 'generic/platform=iOS Simulator'
+          -destination 'generic/platform=iOS'
           -derivedDataPath "$RUNNER_TEMP/DerivedData"
           CODE_SIGNING_ALLOWED=NO
           CODE_SIGNING_REQUIRED=NO
           build
 
-      - name: Run unit tests
+      - name: Compile unit tests for iOS device
         run: >-
           xcodebuild
           -project UnityAssetEditor.xcodeproj
           -scheme UnityAssetEditor
-          -sdk iphonesimulator
+          -sdk iphoneos
           -configuration Debug
-          -destination 'generic/platform=iOS Simulator'
+          -destination 'generic/platform=iOS'
           -derivedDataPath "$RUNNER_TEMP/DerivedData"
           CODE_SIGNING_ALLOWED=NO
           CODE_SIGNING_REQUIRED=NO
-          test
+          build-for-testing
+
+      - name: Archive unsigned app
+        run: >-
+          xcodebuild
+          -project UnityAssetEditor.xcodeproj
+          -scheme UnityAssetEditor
+          -sdk iphoneos
+          -configuration Release
+          -destination 'generic/platform=iOS'
+          -archivePath "$RUNNER_TEMP/UnityAssetEditor.xcarchive"
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
+          archive
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP/UnityAssetEditor.xcarchive/Products/Applications/UnityAssetEditor.app" "$RUNNER_TEMP/ipa/Payload/"
+          /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/ipa/Payload" "$RUNNER_TEMP/UnityAssetEditor-unsigned.ipa"
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: UnityAssetEditor-unsigned-ipa
+          path: ${{ runner.temp }}/UnityAssetEditor-unsigned.ipa
+          if-no-files-found: error
