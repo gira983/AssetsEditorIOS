@@ -47,13 +47,13 @@
 		A10000000000000000000025 /* RecentFilesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/RecentFilesStore.swift; sourceTree = "<group>"; };
 		A10000000000000000000026 /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModels/HomeViewModel.swift; sourceTree = "<group>"; };
 		A10000000000000000000027 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UI/HomeView.swift; sourceTree = "<group>"; };
-		A10000000000000000000028 /* UnityAssetEditorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tests/UnityAssetEditorTests.swift; sourceTree = "<group>"; };
+		A10000000000000000000028 /* UnityAssetEditorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnityAssetEditorTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000029 /* SerializedFileModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/SerializedFileModels.swift; sourceTree = "<group>"; };
 		A1000000000000000000002A /* AssetBundleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/AssetBundleModels.swift; sourceTree = "<group>"; };
 		A1000000000000000000002B /* AssetBackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/AssetBackupService.swift; sourceTree = "<group>"; };
 		A1000000000000000000002C /* SerializedFileParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/SerializedFileParser.swift; sourceTree = "<group>"; };
 		A1000000000000000000002D /* AssetBundleParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/AssetBundleParser.swift; sourceTree = "<group>"; };
-		A10000000000000000000030 /* Phase3ParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tests/Phase3ParserTests.swift; sourceTree = "<group>"; };
+		A10000000000000000000030 /* Phase3ParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase3ParserTests.swift; sourceTree = "<group>"; };
 		A10000000000000000000031 /* UnityAssetEditor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = UnityAssetEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000032 /* UnityAssetEditorTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = UnityAssetEditorTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000033 /* TypeTreeDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/TypeTreeDecoder.swift; sourceTree = "<group>"; };
@@ -66,13 +66,13 @@
 		A10000000000000000000038 /* HexViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hex/HexViewerView.swift; sourceTree = "<group>"; };
 		A10000000000000000000039 /* HexInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hex/HexInspectorView.swift; sourceTree = "<group>"; };
 		A1000000000000000000003A /* HexSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Hex/HexSearchService.swift; sourceTree = "<group>"; };
-		A1000000000000000000003B /* Phase4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tests/Phase4Tests.swift; sourceTree = "<group>"; };
+		A1000000000000000000003B /* Phase4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase4Tests.swift; sourceTree = "<group>"; };
 		A10000000000000000000047 /* SerializedFileTransaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/SerializedFileTransaction.swift; sourceTree = "<group>"; };
 		A10000000000000000000048 /* EditorHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/EditorHistory.swift; sourceTree = "<group>"; };
 		A1000000000000000000004B /* EditorHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UI/EditorHistoryView.swift; sourceTree = "<group>"; };
-		A1000000000000000000004E /* Phase5Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tests/Phase5Tests.swift; sourceTree = "<group>"; };
+		A1000000000000000000004E /* Phase5Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase5Tests.swift; sourceTree = "<group>"; };
 		A1000000000000000000004F /* BundleEntryData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/BundleEntryData.swift; sourceTree = "<group>"; };
-		A1000000000000000000009A /* Phase6Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tests/Phase6Tests.swift; sourceTree = "<group>"; };
+		A1000000000000000000009A /* Phase6Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase6Tests.swift; sourceTree = "<group>"; };
 		A10000000000000000000066 /* AssetDiffModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/AssetDiffModels.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
