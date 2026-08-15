@@ -23,4 +23,25 @@ final class Phase3ParserTests: XCTestCase {
         let fields = try TypeTreeDecoder(bigEndian: false).decode(data: data, start: 0, end: data.count, root: root)
         XCTAssertEqual(fields.first?.value, "abc")
     }
+
+    func testModernHeaderUsesTheExtendedFieldsAndAllowsPadding() throws {
+        var data = Data()
+        data.append(contentsOf: [0, 0, 0, 0])
+        data.append(contentsOf: [0, 0, 0, 0])
+        data.append(contentsOf: [0, 0, 0, 22])
+        data.append(contentsOf: [0, 0, 0, 0])
+        data.append(contentsOf: [0, 0, 0, 0])
+        data.append(contentsOf: [0, 0, 0, 0, 0, 0, 0, 80])
+        data.append(contentsOf: [0, 0, 0, 64, 0, 0, 0, 0])
+        data.append(contentsOf: Array(repeating: UInt8(0), count: 24))
+        data.append(contentsOf: Array("2021.3.0f1".utf8) + [0])
+        data.append(contentsOf: [0, 0, 0, 19, 0])
+        data.append(contentsOf: [0, 0, 0, 0])
+        data.append(contentsOf: [0, 0, 0, 0])
+        data.append(contentsOf: [0])
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try data.write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        XCTAssertThrowsError(try SerializedFileParser().open(url: url))
+    }
 }
