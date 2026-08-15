@@ -127,7 +127,7 @@
 
 /* Begin XCConfigurationList section */
 		A10000000000000000000071 = {isa = XCConfigurationList; buildConfigurations = (A10000000000000000000081, A10000000000000000000082,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		A10000000000000000000072 = {isa = XCConfigurationList; buildConfigurations = (A10000000000000000000081, A10000000000000000000082,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A10000000000000000000072 = {isa = XCConfigurationList; buildConfigurations = (A10000000000000000000083, A10000000000000000000084,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		A10000000000000000000073 = {isa = XCConfigurationList; buildConfigurations = (A10000000000000000000083, A10000000000000000000084,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 };
