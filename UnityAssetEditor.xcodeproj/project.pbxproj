@@ -88,12 +88,12 @@
 		A10000000000000000000055 /* App */ = {isa = PBXGroup; children = (A10000000000000000000021,); path = .; sourceTree = "<group>"; };
 		A10000000000000000000056 /* UI */ = {isa = PBXGroup; children = (A10000000000000000000027, A1000000000000000000004B); path = .; sourceTree = "<group>"; };
 		A10000000000000000000057 /* ViewModels */ = {isa = PBXGroup; children = (A10000000000000000000026,); path = .; sourceTree = "<group>"; };
-		A10000000000000000000058 /* Core */ = {isa = PBXGroup; children = (A10000000000000000000023, A1000000000000000000002C, A1000000000000000000002D, A10000000000000000000033, A10000000000000000000034, A10000000000000000000040, A10000000000000000000047, A10000000000000000000048); path = Core; sourceTree = "<group>"; };
+		A10000000000000000000058 /* Core */ = {isa = PBXGroup; children = (A10000000000000000000023, A1000000000000000000002C, A1000000000000000000002D, A10000000000000000000033, A10000000000000000000034, A10000000000000000000040, A10000000000000000000047, A10000000000000000000048); path = .; sourceTree = "<group>"; };
 		A10000000000000000000059 /* Models */ = {isa = PBXGroup; children = (A10000000000000000000022, A10000000000000000000029, A1000000000000000000002A, A10000000000000000000037 /* RawObjectData.swift */, A1000000000000000000004F /* BundleEntryData.swift */, A10000000000000000000066 /* AssetDiffModels.swift */); path = .; sourceTree = "<group>"; };
 		A1000000000000000000005A /* Services */ = {isa = PBXGroup; children = (A10000000000000000000025, A1000000000000000000002B,); path = .; sourceTree = "<group>"; };
 		A1000000000000000000005B /* FileSystem */ = {isa = PBXGroup; children = (A10000000000000000000024,); path = .; sourceTree = "<group>"; };
-		A1000000000000000000005E /* Diff */ = {isa = PBXGroup; children = (A10000000000000000000035 /* AssetDiffService.swift */, A10000000000000000000036 /* DiffViewerView.swift */); path = Diff; sourceTree = "<group>"; };
-		A1000000000000000000005F /* Hex */ = {isa = PBXGroup; children = (A10000000000000000000038 /* HexViewerView.swift */, A10000000000000000000039 /* HexInspectorView.swift */, A1000000000000000000003A /* HexSearchService.swift */); path = Hex; sourceTree = "<group>"; };
+		A1000000000000000000005E /* Diff */ = {isa = PBXGroup; children = (A10000000000000000000035 /* AssetDiffService.swift */, A10000000000000000000036 /* DiffViewerView.swift */); path = .; sourceTree = "<group>"; };
+		A1000000000000000000005F /* Hex */ = {isa = PBXGroup; children = (A10000000000000000000038 /* HexViewerView.swift */, A10000000000000000000039 /* HexInspectorView.swift */, A1000000000000000000003A /* HexSearchService.swift */); path = .; sourceTree = "<group>"; };
 		A10000000000000000000053 /* Products */ = {isa = PBXGroup; children = (A10000000000000000000031, A10000000000000000000032,); name = Products; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
