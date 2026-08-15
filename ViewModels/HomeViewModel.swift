@@ -42,24 +42,24 @@ final class HomeViewModel: ObservableObject {
     @MainActor
     init(
         fileImporter: FileImporter = FileImporter(),
-        recentFilesStore: RecentFilesStore = RecentFilesStore(),
+        recentFilesStore: RecentFilesStore? = nil,
         backend: NativeSerializedFileBackend = NativeSerializedFileBackend(),
         backupService: AssetBackupService = AssetBackupService(),
         bundleParser: AssetBundleParser = AssetBundleParser(),
         assetDiffService: AssetDiffService = AssetDiffService(),
         rawObjectDataProvider: RawObjectDataProvider = RawObjectDataProvider(),
         transaction: SerializedFileTransaction = SerializedFileTransaction(),
-        historyStore: EditorHistoryStore = EditorHistoryStore()
+        historyStore: EditorHistoryStore? = nil
     ) {
         self.fileImporter = fileImporter
-        self.recentFilesStore = recentFilesStore
+        self.recentFilesStore = recentFilesStore ?? RecentFilesStore()
         self.backend = backend
         self.backupService = backupService
         self.bundleParser = bundleParser
         self.assetDiffService = assetDiffService
         self.rawObjectDataProvider = rawObjectDataProvider
         self.transaction = transaction
-        self.historyStore = historyStore
+        self.historyStore = historyStore ?? EditorHistoryStore()
         recentFiles = recentFilesStore.files
         historyStore.objectWillChange.sink { [weak self] _ in
             Task { @MainActor in self?.syncHistoryState() }
