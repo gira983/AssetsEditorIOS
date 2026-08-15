@@ -1,6 +1,6 @@
 # UnityAssetEditor
 
-Phase 6 is a native SwiftUI iOS 16+ editor foundation for inspecting Unity SerializedFiles and UnityFS AssetBundles.
+
 
 ## Implemented
 
