@@ -72,7 +72,7 @@ struct HexViewerView: View {
                     ForEach(Array(stride(from: 0, to: rawData.bytes.count, by: 16)), id: \.self) { rowStart in
                         HexRow(
                             absoluteOffset: rawData.absoluteOffset + rowStart,
-                            bytes: Array(rawData.bytes[rowStart..<min(rowStart + 16, rawData.bytes.count)]),
+                            bytes: bytesForRow(start: rowStart),
                             isFocused: focusedRowStart == rowStart,
                             isMatched: matches.contains { $0 >= rowStart && $0 < rowStart + 16 }
                         )
@@ -84,6 +84,12 @@ struct HexViewerView: View {
             .onAppear { scrollToFocus(proxy) }
             .onChange(of: viewModel.hexFocusOffset) { _ in scrollToFocus(proxy) }
         }
+    }
+
+    private func bytesForRow(start: Int) -> [UInt8] {
+        guard start >= 0, start < rawData.bytes.count else { return [] }
+        let end = min(start + 16, rawData.bytes.count)
+        return Array(rawData.bytes[start..<end])
     }
 
     private var matches: [Int] {
