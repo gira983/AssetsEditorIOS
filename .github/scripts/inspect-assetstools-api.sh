@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo="https://raw.githubusercontent.com/nesrak1/AssetsTools.NET/v24"
+repo="https://raw.githubusercontent.com/nesrak1/AssetsTools.NET/main"
 work_dir="${RUNNER_TEMP:-/tmp}/assetstools-api"
 mkdir -p "$work_dir"
 
@@ -17,7 +17,7 @@ for path in \
   AssetTools.NET/Standard/AssetsBundleFileFormat/AssetBundleDirectoryInfo.cs
  do
   curl --fail --silent --show-error "$repo/$path" -o "$work_dir/$(basename "$path")"
- done
+done
 
 grep -q 'LoadAssetsFile(string path' "$work_dir/AssetsManager.Assets.cs"
 grep -q 'LoadBundleFile(string path' "$work_dir/AssetsManager.Bundle.cs"
@@ -28,4 +28,4 @@ grep -q 'public void Write(AssetsFileWriter writer' "$work_dir/AssetsFile.cs"
 grep -q 'public void Write(AssetsFileWriter writer' "$work_dir/AssetBundleFile.cs"
 grep -q 'SetNewData(byte\[\] newBytes)' "$work_dir/AssetBundleDirectoryInfo.cs"
 
-echo "AssetsTools.NET v24 API smoke check passed"
+echo "AssetsTools.NET API smoke check passed"
