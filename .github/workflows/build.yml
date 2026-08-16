@@ -29,10 +29,59 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Verify upstream AssetsTools.NET APIs
+        run: .github/scripts/inspect-assetstools-api.sh
+
+      - name: Build managed AssetsTools worker
+        run: >-
+          dotnet publish Bridge/AssetToolsBridge.Managed/AssetToolsBridge.Managed.csproj
+          --configuration Release
+          --runtime osx-arm64
+          --self-contained true
+          --output "$RUNNER_TEMP/AssetsToolsBridgeManaged"
+
+      - name: Build NativeAOT ABI proof of concept
+        run: >-
+          dotnet publish Bridge/AssetToolsBridge.Native/AssetToolsBridge.Native.csproj
+          --configuration Release
+          --runtime osx-arm64
+          --output "$RUNNER_TEMP/AssetsToolsBridgeNative"
+
+      - name: Verify NativeAOT export
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/AssetsToolsBridgeNative/AssetToolsBridge.Native.dylib"
+          nm -gU "$RUNNER_TEMP/AssetsToolsBridgeNative/AssetToolsBridge.Native.dylib" | grep -q 'uae_bridge_add'
+
+      - name: Run managed bridge smoke checks
+        run: |
+          set -euo pipefail
+          WORKER="$RUNNER_TEMP/AssetsToolsBridgeManaged/AssetToolsBridge.Managed"
+          "$WORKER" inspect "$GITHUB_WORKSPACE/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D" > "$RUNNER_TEMP/bridge-inspect.json"
+          "$WORKER" objects "$GITHUB_WORKSPACE/cache_res.CfnFf59sr1SbsqQ6JqTKsEusjKs~3D" > "$RUNNER_TEMP/bridge-objects.json"
+          python3 - "$RUNNER_TEMP/bridge-inspect.json" "$RUNNER_TEMP/bridge-objects.json" <<'PYTHON'
+          import json, sys
+          inspect = json.load(open(sys.argv[1]))
+          objects = json.load(open(sys.argv[2]))
+          assert inspect["kind"] == "serializedFile"
+          assert inspect["objectCount"] == len(objects)
+          assert inspect["formatVersion"] >= 1
+          PYTHON
+
       - name: Show toolchain
         run: |
           xcodebuild -version
           xcrun swift --version
+
+      - name: Verify bridge sources are tracked
+        run: |
+          test -f Bridge/AssetToolsBridge.Managed/AssetToolsBridge.Managed.csproj
+          test -f Bridge/AssetToolsBridge.Managed/Program.cs
 
       - name: List available schemes
         run: xcodebuild -list -project UnityAssetEditor.xcodeproj

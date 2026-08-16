@@ -1,0 +1,4 @@
+module UnityAssetEditorBridge {
+    header "UnityAssetEditorBridge.h"
+    export *
+}
