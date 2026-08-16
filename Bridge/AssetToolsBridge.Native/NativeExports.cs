@@ -19,8 +19,8 @@ public static unsafe class NativeExports
         if (path is null)
             return -2;
 
-        var result = BridgeCommand.Inspect(path);
-        var bytes = Encoding.UTF8.GetBytes(result);
+        var json = BridgeApi.InspectJson(path);
+        var bytes = Encoding.UTF8.GetBytes(json);
         if (bytes.Length > outputCapacity)
             return -3;
 
