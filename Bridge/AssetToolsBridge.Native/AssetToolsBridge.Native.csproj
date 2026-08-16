@@ -6,9 +6,9 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <PublishAot>false</PublishAot>
-    <SelfContained>false</SelfContained>
-    <PublishTrimmed>false</PublishTrimmed>
+    <PublishAot>true</PublishAot>
+    <SelfContained>true</SelfContained>
+    <PublishTrimmed>true</PublishTrimmed>
     <StripSymbols>true</StripSymbols>
     <IlcDisableReflection>true</IlcDisableReflection>
   </PropertyGroup>
@@ -19,5 +19,8 @@
   <ItemGroup>
     <PackageReference Include="AssetsTools.NET" Version="3.0.5" />
     <PackageReference Include="AssetsTools.NET.Extra" Version="3.0.5" />
+  </ItemGroup>
+  <ItemGroup>
+    <TrimmerRootDescriptor Include="rd.xml" />
   </ItemGroup>
 </Project>
