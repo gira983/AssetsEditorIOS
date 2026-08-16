@@ -4,12 +4,13 @@
     <OutputType>Library</OutputType>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PublishAot>true</PublishAot>
-    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
     <InvariantGlobalization>true</InvariantGlobalization>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <LangVersion>latest</LangVersion>
+    <IsTrimmable>false</IsTrimmable>
+    <IlcDisableReflection>true</IlcDisableReflection>
     <StripSymbols>true</StripSymbols>
   </PropertyGroup>
   <ItemGroup>
