@@ -16,6 +16,10 @@
     <IlcDisableReflection>true</IlcDisableReflection>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="NativeExports.cs" />
+    <Compile Include="../AssetToolsBridge.Managed/Program.cs" Link="Program.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="AssetsTools.NET" Version="3.0.5" />
     <PackageReference Include="AssetsTools.NET.Extra" Version="3.0.5" />
   </ItemGroup>
