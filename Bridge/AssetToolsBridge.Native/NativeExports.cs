@@ -6,9 +6,6 @@ namespace UnityAssetEditor.AssetToolsBridge.Native;
 
 public static unsafe class NativeExports
 {
-    [UnmanagedCallersOnly(EntryPoint = "uae_bridge_add")]
-    public static int Add(int left, int right) => left + right;
-
     [UnmanagedCallersOnly(EntryPoint = "uae_bridge_inspect")]
     public static int Inspect(byte* pathUtf8, byte* outputBuffer, int outputCapacity)
     {
@@ -17,15 +14,22 @@ public static unsafe class NativeExports
 
         var path = ReadUtf8(pathUtf8);
         if (path is null)
+            return -1;
+
+        try
+        {
+            var json = BridgeApi.InspectJson(path);
+            var bytes = Encoding.UTF8.GetBytes(json);
+            if (bytes.Length > outputCapacity)
+                return -3;
+
+            Marshal.Copy(bytes, 0, (nint)outputBuffer, bytes.Length);
+            return bytes.Length;
+        }
+        catch
+        {
             return -2;
-
-        var json = BridgeApi.InspectJson(path);
-        var bytes = Encoding.UTF8.GetBytes(json);
-        if (bytes.Length > outputCapacity)
-            return -3;
-
-        Marshal.Copy(bytes, 0, (nint)outputBuffer, bytes.Length);
-        return bytes.Length;
+        }
     }
 
     private static string? ReadUtf8(byte* value)
