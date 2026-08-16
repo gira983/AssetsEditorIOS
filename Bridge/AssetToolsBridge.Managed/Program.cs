@@ -100,12 +100,12 @@ internal static class Program
         if (document.Assets is null)
             return Fail(InvalidArguments, "objects is available only for SerializedFiles");
 
-        WriteJson(document.Assets.Metadata.AssetInfos.Select(info => new
+        WriteJson(document.Assets.file.Metadata.AssetInfos.Select(info => new
         {
             id = $"{info.PathId}",
             pathID = info.PathId,
             typeID = info.GetTypeId(document.Assets.file),
-            byteOffset = info.GetAbsoluteByteOffset(document.Assets),
+            byteOffset = info.GetAbsoluteByteOffset(document.Assets.file),
             byteSize = info.ByteSize,
             typeName = TypeName(document.Assets, info),
             displayName = $"{TypeName(document.Assets, info)} ({info.PathId})"
@@ -122,7 +122,7 @@ internal static class Program
         if (document.Assets is null)
             return Fail(InvalidArguments, "fields is available only for SerializedFiles");
 
-        AssetFileInfo info = document.Assets.GetAssetInfo(pathID) ?? throw new InvalidDataException("object not found");
+        AssetFileInfo info = document.Assets.file.GetAssetInfo(pathID) ?? throw new InvalidDataException("object not found");
         AssetTypeValueField baseField = document.Manager.GetBaseField(document.Assets, info);
         List<FieldRow> fields = new();
         Walk(baseField, baseField.FieldName, 0, fields);
@@ -145,7 +145,7 @@ internal static class Program
             if (document.Assets is null)
                 return Fail(InvalidArguments, "edit is available only for SerializedFiles");
 
-            AssetFileInfo info = document.Assets.GetAssetInfo(pathID) ?? throw new InvalidDataException("object not found");
+            AssetFileInfo info = document.Assets.file.GetAssetInfo(pathID) ?? throw new InvalidDataException("object not found");
             AssetTypeValueField baseField = document.Manager.GetBaseField(document.Assets, info);
             AssetTypeValueField field = FindField(baseField, fieldPath) ?? throw new InvalidDataException($"field not found: {fieldPath}");
             SetField(field, newValue);
@@ -154,7 +154,7 @@ internal static class Program
             using (FileStream output = File.Create(tempPath))
             using (AssetsFileWriter writer = new(output))
             {
-                document.Assets.Write(writer);
+                document.Assets.file.Write(writer);
             }
 
             File.Move(tempPath, path, true);
@@ -177,7 +177,7 @@ internal static class Program
         if (document.Bundle is null)
             return Fail(InvalidArguments, "bundle-entries is available only for AssetBundles");
 
-        WriteJson(document.Bundle.BlockAndDirInfo.DirectoryInfos.Select((entry, index) => new
+        WriteJson(document.Bundle.file.BlockAndDirInfo.DirectoryInfos.Select((entry, index) => new
         {
             id = index,
             name = entry.Name,
@@ -197,7 +197,7 @@ internal static class Program
         using BridgeDocument document = BridgeDocument.Open(args[1]);
         if (document.Bundle is null)
             return Fail(InvalidArguments, "extract is available only for AssetBundles");
-        if (index < 0 || index >= document.Bundle.BlockAndDirInfo.DirectoryInfos.Count)
+        if (index < 0 || index >= document.Bundle.file.BlockAndDirInfo.DirectoryInfos.Count)
             return Fail(InvalidArguments, "entry index is out of range");
 
         document.Bundle.file.GetFileRange(index, out long offset, out long length);
