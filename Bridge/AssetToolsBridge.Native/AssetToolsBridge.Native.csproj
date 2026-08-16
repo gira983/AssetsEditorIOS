@@ -9,11 +9,8 @@
     <PublishAot>true</PublishAot>
     <SelfContained>true</SelfContained>
     <StripSymbols>true</StripSymbols>
-    <OptimizationPreference>Speed</OptimizationPreference>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IsAotCompatible>true</IsAotCompatible>
-    <IlcGenerateDirectMap>true</IlcGenerateDirectMap>
-    <IlcDisableReflection>true</IlcDisableReflection>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="NativeExports.cs" />
