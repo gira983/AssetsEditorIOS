@@ -11,8 +11,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <StripSymbols>true</StripSymbols>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="NativeExports.cs" />
+    <ProjectReference Include="../AssetToolsBridge.Managed/AssetToolsBridge.Managed.csproj" />
   </ItemGroup>
 </Project>
