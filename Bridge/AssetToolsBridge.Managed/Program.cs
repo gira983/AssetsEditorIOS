@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
@@ -45,18 +46,16 @@ internal static class Program
         }
     }
 
-    private static int Inspect(string[] args)
+    internal static string Inspect(string path)
     {
-        if (args.Length != 2)
-            return Fail(InvalidArguments, "usage: inspect <path>");
-
-        using FileStream stream = File.OpenRead(args[1]);
-        if (AssetsFile.IsAssetsFile(new AssetsFileReader(stream), 0, stream.Length))
+        using FileStream stream = File.OpenRead(path);
+        AssetsFileReader reader = new(stream);
+        if (AssetsFile.IsAssetsFile(reader, 0, stream.Length))
         {
             stream.Position = 0;
             AssetsFile assetsFile = new();
             assetsFile.Read(new AssetsFileReader(stream));
-            WriteJson(new
+            return JsonSerializer.Serialize(new
             {
                 kind = "serializedFile",
                 formatVersion = assetsFile.Header.Version,
@@ -70,14 +69,13 @@ internal static class Program
                 externalCount = assetsFile.Metadata.Externals.Count,
                 isBigEndian = assetsFile.Header.Endianness,
                 typeTreeEnabled = assetsFile.Metadata.TypeTreeEnabled
-            });
-            return Success;
+            }, JsonOptions);
         }
 
         stream.Position = 0;
         AssetBundleFile bundle = new();
         bundle.Read(new AssetsFileReader(stream));
-        WriteJson(new
+        return JsonSerializer.Serialize(new
         {
             kind = "assetBundle",
             signature = bundle.Header.Signature,
@@ -87,7 +85,14 @@ internal static class Program
             compressed = bundle.DataIsCompressed,
             blockCount = bundle.BlockAndDirInfo.BlockInfos.Length,
             directoryEntryCount = bundle.BlockAndDirInfo.DirectoryInfos.Count
-        });
+        }, JsonOptions);
+    }
+
+    private static int Inspect(string[] args)
+    {
+        if (args.Length != 2)
+            return Fail(InvalidArguments, "usage: inspect <path>");
+        Console.Out.WriteLine(Inspect(args[1]));
         return Success;
     }
 
@@ -100,12 +105,12 @@ internal static class Program
         if (document.Assets is null)
             return Fail(InvalidArguments, "objects is available only for SerializedFiles");
 
-        WriteJson(document.Assets.file.Metadata.AssetInfos.Select(info => new
+        WriteJson(document.Assets.File.Metadata.AssetInfos.Select(info => new
         {
             id = $"{info.PathId}",
             pathID = info.PathId,
-            typeID = info.GetTypeId(document.Assets.file),
-            byteOffset = info.GetAbsoluteByteOffset(document.Assets.file),
+            typeID = info.GetTypeId(document.Assets.File),
+            byteOffset = info.GetAbsoluteByteOffset(document.Assets.File),
             byteSize = info.ByteSize,
             typeName = TypeName(document.Assets, info),
             displayName = $"{TypeName(document.Assets, info)} ({info.PathId})"
@@ -122,7 +127,7 @@ internal static class Program
         if (document.Assets is null)
             return Fail(InvalidArguments, "fields is available only for SerializedFiles");
 
-        AssetFileInfo info = document.Assets.file.GetAssetInfo(pathID) ?? throw new InvalidDataException("object not found");
+        AssetFileInfo info = document.Assets.File.GetAssetInfo(pathID) ?? throw new InvalidDataException("object not found");
         AssetTypeValueField baseField = document.Manager.GetBaseField(document.Assets, info);
         List<FieldRow> fields = new();
         Walk(baseField, baseField.FieldName, 0, fields);
@@ -136,8 +141,6 @@ internal static class Program
             return Fail(InvalidArguments, "usage: edit <path> <pathID> <fieldPath> <value>");
 
         string path = args[1];
-        string fieldPath = args[3];
-        string newValue = args[4];
         string tempPath = path + ".uae-edit-" + Guid.NewGuid().ToString("N");
         try
         {
@@ -145,20 +148,17 @@ internal static class Program
             if (document.Assets is null)
                 return Fail(InvalidArguments, "edit is available only for SerializedFiles");
 
-            AssetFileInfo info = document.Assets.file.GetAssetInfo(pathID) ?? throw new InvalidDataException("object not found");
+            AssetFileInfo info = document.Assets.File.GetAssetInfo(pathID) ?? throw new InvalidDataException("object not found");
             AssetTypeValueField baseField = document.Manager.GetBaseField(document.Assets, info);
-            AssetTypeValueField field = FindField(baseField, fieldPath) ?? throw new InvalidDataException($"field not found: {fieldPath}");
-            SetField(field, newValue);
-            info.SetNewData(baseField);
+            AssetTypeValueField field = FindField(baseField, args[3]) ?? throw new InvalidDataException($"field not found: {args[3]}");
+            SetField(field, args[4]);
+            info.SetNewData(baseField.WriteToByteArray());
 
-            using (FileStream output = File.Create(tempPath))
-            using (AssetsFileWriter writer = new(output))
-            {
-                document.Assets.file.Write(writer);
-            }
-
+            using FileStream output = File.Create(tempPath);
+            using AssetsFileWriter writer = new(output);
+            document.Assets.File.Write(writer);
             File.Move(tempPath, path, true);
-            WriteJson(new { ok = true, pathID, fieldPath });
+            WriteJson(new { ok = true, pathID, fieldPath = args[3] });
             return Success;
         }
         finally
@@ -177,14 +177,13 @@ internal static class Program
         if (document.Bundle is null)
             return Fail(InvalidArguments, "bundle-entries is available only for AssetBundles");
 
-        WriteJson(document.Bundle.file.BlockAndDirInfo.DirectoryInfos.Select((entry, index) => new
+        WriteJson(document.Bundle.File.BlockAndDirInfo.DirectoryInfos.Select((entry, index) => new
         {
             id = index,
             name = entry.Name,
             offset = entry.Offset,
             decompressedSize = entry.DecompressedSize,
-            flags = entry.Flags,
-            isSerialized = entry.IsSerialized
+            flags = entry.Flags
         }));
         return Success;
     }
@@ -197,12 +196,12 @@ internal static class Program
         using BridgeDocument document = BridgeDocument.Open(args[1]);
         if (document.Bundle is null)
             return Fail(InvalidArguments, "extract is available only for AssetBundles");
-        if (index < 0 || index >= document.Bundle.file.BlockAndDirInfo.DirectoryInfos.Count)
+        if (index < 0 || index >= document.Bundle.File.BlockAndDirInfo.DirectoryInfos.Count)
             return Fail(InvalidArguments, "entry index is out of range");
 
-        document.Bundle.file.GetFileRange(index, out long offset, out long length);
-        document.Bundle.file.DataReader.Position = offset;
-        byte[] data = document.Bundle.file.DataReader.ReadBytes((int)length);
+        document.Bundle.File.GetFileRange(index, out long offset, out long length);
+        document.Bundle.File.DataReader.Position = offset;
+        byte[] data = document.Bundle.File.DataReader.ReadBytes((int)length);
         File.WriteAllBytes(args[3], data);
         WriteJson(new { ok = true, path = args[3], bytes = data.Length });
         return Success;
@@ -210,7 +209,7 @@ internal static class Program
 
     private static string TypeName(AssetsFileInstance assets, AssetFileInfo info)
     {
-        int typeID = info.GetTypeId(assets.file);
+        int typeID = info.GetTypeId(assets.File);
         return Enum.IsDefined(typeof(AssetClassID), typeID)
             ? ((AssetClassID)typeID).ToString()
             : $"ClassID {typeID}";
@@ -301,10 +300,10 @@ internal static class Program
             case AssetValueType.UInt64 when ulong.TryParse(value, out ulong uint64):
                 field.AsULong = uint64;
                 return;
-            case AssetValueType.Float when float.TryParse(value, out float single):
+            case AssetValueType.Float when float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float single):
                 field.AsFloat = single;
                 return;
-            case AssetValueType.Double when double.TryParse(value, out double doubleValue):
+            case AssetValueType.Double when double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double doubleValue):
                 field.AsDouble = doubleValue;
                 return;
             default:
@@ -326,8 +325,8 @@ internal static class Program
             AssetValueType.UInt32 => field.AsUInt.ToString(),
             AssetValueType.Int64 => field.AsLong.ToString(),
             AssetValueType.UInt64 => field.AsULong.ToString(),
-            AssetValueType.Float => field.AsFloat.ToString("R"),
-            AssetValueType.Double => field.AsDouble.ToString("R"),
+            AssetValueType.Float => field.AsFloat.ToString("R", CultureInfo.InvariantCulture),
+            AssetValueType.Double => field.AsDouble.ToString("R", CultureInfo.InvariantCulture),
             AssetValueType.ByteArray => $"[{field.AsByteArray.Length} bytes]",
             AssetValueType.Array => $"[{field.Children.Count} items]",
             _ => string.Empty
@@ -371,7 +370,8 @@ internal static class Program
             try
             {
                 using FileStream stream = File.OpenRead(path);
-                if (AssetsFile.IsAssetsFile(new AssetsFileReader(stream), 0, stream.Length))
+                AssetsFileReader reader = new(stream);
+                if (AssetsFile.IsAssetsFile(reader, 0, stream.Length))
                 {
                     AssetsFileInstance assets = manager.LoadAssetsFile(path, false);
                     return new BridgeDocument(manager, assets, null);
