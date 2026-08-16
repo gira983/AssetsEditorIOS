@@ -2,26 +2,17 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <OutputType>Library</OutputType>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <LangVersion>latest</LangVersion>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PublishAot>true</PublishAot>
     <SelfContained>true</SelfContained>
-    <PublishTrimmed>true</PublishTrimmed>
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
     <StripSymbols>true</StripSymbols>
-    <IlcDisableReflection>true</IlcDisableReflection>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="NativeExports.cs" />
-    <Compile Include="../AssetToolsBridge.Managed/Program.cs" Link="Program.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="AssetsTools.NET" Version="3.0.5" />
-    <PackageReference Include="AssetsTools.NET.Extra" Version="3.0.5" />
-  </ItemGroup>
-  <ItemGroup>
-    <TrimmerRootDescriptor Include="rd.xml" />
   </ItemGroup>
 </Project>
