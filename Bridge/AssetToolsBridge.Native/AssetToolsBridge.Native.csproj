@@ -11,6 +11,7 @@
     <PublishTrimmed>true</PublishTrimmed>
     <StripSymbols>true</StripSymbols>
     <IlcDisableReflection>true</IlcDisableReflection>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="NativeExports.cs" />
