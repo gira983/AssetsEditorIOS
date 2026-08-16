@@ -67,16 +67,25 @@ jobs:
           import struct, sys
           path = sys.argv[1]
           data = bytearray(0x40)
-          struct.pack_into(">I", data, 0, 0x20)
-          struct.pack_into(">I", data, 4, 0x40)
+          metadata = bytearray()
+          metadata += b"2021.3.0f1\0"
+          metadata += struct.pack(">I", 0)
+          metadata += b"\x00"
+          metadata += struct.pack(">I", 0)
+          metadata += struct.pack(">I", 0)
+          metadata += struct.pack(">I", 0)
+          metadata += struct.pack(">I", 0)
+          metadata += b"\0"
+          header_size = 48
+          data_offset = header_size + len(metadata)
+          file_size = data_offset
+          data = bytearray(header_size)
           struct.pack_into(">I", data, 8, 22)
-          struct.pack_into(">I", data, 12, 0)
-          data[16:29] = b"2021.3.0f1\0"
-          struct.pack_into(">I", data, 0x20, 0)
-          struct.pack_into(">I", data, 0x24, 0)
-          struct.pack_into(">I", data, 0x28, 0)
-          struct.pack_into(">I", data, 0x2C, 0)
-          struct.pack_into(">I", data, 0x30, 1)
+          data[16] = 0
+          struct.pack_into(">I", data, 24, len(metadata))
+          struct.pack_into(">q", data, 28, file_size)
+          struct.pack_into(">q", data, 36, data_offset)
+          data += metadata
           open(path, "wb").write(data)
           PYTHON
           "$WORKER" inspect "$FIXTURE" > "$RUNNER_TEMP/bridge-inspect.json"
