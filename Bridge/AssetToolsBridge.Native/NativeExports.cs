@@ -4,7 +4,7 @@ using UnityAssetEditor.AssetToolsBridge.Managed;
 
 namespace UnityAssetEditor.AssetToolsBridge.Native;
 
-public static class NativeExports
+public static unsafe class NativeExports
 {
     [UnmanagedCallersOnly(EntryPoint = "uae_bridge_add")]
     public static int Add(int left, int right) => left + right;
@@ -28,7 +28,7 @@ public static class NativeExports
         return bytes.Length;
     }
 
-    private static unsafe string? ReadUtf8(byte* value)
+    private static string? ReadUtf8(byte* value)
     {
         var length = 0;
         while (value[length] != 0)
