@@ -12,6 +12,8 @@
     <OptimizationPreference>Speed</OptimizationPreference>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IsAotCompatible>true</IsAotCompatible>
+    <IlcGenerateDirectMap>true</IlcGenerateDirectMap>
+    <IlcDisableReflection>true</IlcDisableReflection>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="AssetsTools.NET" Version="3.0.5" />
