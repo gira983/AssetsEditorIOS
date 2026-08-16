@@ -35,12 +35,12 @@ struct SerializedFileParser {
         let reportedFileSize = header.fileSize > 0 ? UInt64(header.fileSize) : UInt64(data.count)
         let objects = metadata.objects.map { record in
             let typeName = unityTypeName(record.typeID)
-            let absoluteOffset = header.dataOffset + record.byteOffset
+            let absoluteOffset = header.dataOffset.addingReportingOverflow(record.byteOffset)
             return SerializedObjectInfo(
                 id: "\(record.pathID)",
                 pathID: record.pathID,
                 typeID: record.typeID,
-                byteOffset: UInt64(max(0, absoluteOffset)),
+                byteOffset: UInt64(max(0, absoluteOffset.partialValue)),
                 byteSize: record.byteSize,
                 typeName: typeName,
                 displayName: "\(typeName) · \(record.pathID)"
@@ -73,11 +73,16 @@ struct SerializedFileParser {
         guard let record = session.objectRecords.first(where: { $0.pathID == object.pathID }) else {
             throw SerializedFileError.malformed("object not found")
         }
-        let start = Int(object.byteOffset)
-        let objectSize = Int(record.byteSize)
-        guard objectSize >= 0, start >= 0, start <= session.data.count, objectSize <= session.data.count - start else {
+        let start64 = object.byteOffset
+        let size64 = UInt64(record.byteSize)
+        guard start64 <= UInt64(session.data.count),
+              size64 <= UInt64(session.data.count) - start64,
+              start64 <= UInt64(Int.max),
+              size64 <= UInt64(Int.max) else {
             throw SerializedFileError.malformed("object range exceeds file")
         }
+        let start = Int(start64)
+        let objectSize = Int(size64)
         let end = start + objectSize
         if session.typeTreeEnabled,
            let typeRecord = session.typeRecords.first(where: {

@@ -121,7 +121,7 @@ private struct HexRow: View {
                 .foregroundStyle(.secondary)
             Text(hex)
                 .foregroundStyle(isMatched ? .yellow : .primary)
-                .frame(width: 24 * 3, alignment: .leading)
+                .frame(width: 16 * 3 + 15, alignment: .leading)
             Text(ascii)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -133,13 +133,15 @@ private struct HexRow: View {
     }
 
     private var hex: String {
-        let padded = bytes.map { String(format: "%02X", Int($0)) } + Array(repeating: "  ", count: 16 - bytes.count)
-        return stride(from: 0, to: padded.count, by: 2).map { index in
-            padded[index] + padded[index + 1]
-        }.joined(separator: " ")
+        bytes.enumerated().map { index, byte in
+            let value = String(format: "%02X", Int(byte))
+            return index == 15 ? value : value + " "
+        }.joined() + String(repeating: "   ", count: max(0, 16 - bytes.count))
     }
 
     private var ascii: String {
-        String(bytes: bytes.map { $0 >= 0x20 && $0 < 0x7F ? $0 : 0x2E }, encoding: .ascii) ?? ""
+        bytes.map { byte in
+            byte >= 0x20 && byte < 0x7F ? String(UnicodeScalar(byte)) : "."
+        }.joined()
     }
 }

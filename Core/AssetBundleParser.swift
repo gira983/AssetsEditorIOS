@@ -71,27 +71,31 @@ struct AssetBundleParser {
         guard fileSize >= 0 else { throw AssetBundleError.malformed("negative file size") }
         let blockInfoCompressedSize = UInt64(try reader.readUInt32BE())
         let blockInfoDecompressedSize = UInt64(try reader.readUInt32BE())
-        guard blockInfoDecompressedSize <= UInt64(Int.max) else { throw AssetBundleError.malformed("block info size exceeds addressable range") }
+        guard blockInfoCompressedSize <= blockInfoDecompressedSize,
+              blockInfoDecompressedSize <= UInt64(Int.max) else {
+            throw AssetBundleError.malformed("invalid block info sizes")
+        }
         let flags = try reader.readUInt32BE()
         let compression = compressionType(flags & 0x3F)
+        let headerEnd = reader.offset
         let infoOffset: Int
-        let dataOffset: Int
-        let alignedDataStart = reader.offset
         if flags & 0x80 != 0 {
             guard fileSize >= Int64(blockInfoCompressedSize) else { throw AssetBundleError.malformed("invalid block info offset") }
             let candidate = fileSize - Int64(blockInfoCompressedSize)
-            guard candidate <= Int64(data.count) else { throw AssetBundleError.malformed("block info offset exceeds file") }
-            guard candidate <= Int64(Int.max) else { throw AssetBundleError.malformed("block info offset exceeds addressable range") }
+            guard candidate >= 0, candidate <= Int64(data.count), candidate <= Int64(Int.max) else {
+                throw AssetBundleError.malformed("block info offset exceeds file")
+            }
             infoOffset = Int(candidate)
-            dataOffset = alignedDataStart
         } else {
-            infoOffset = alignedDataStart
-            dataOffset = alignedDataStart + Int(blockInfoCompressedSize)
+            infoOffset = headerEnd
         }
-        guard infoOffset >= 0, infoOffset <= data.count, blockInfoCompressedSize <= UInt64(data.count - infoOffset) else { throw AssetBundleError.malformed("invalid block info range") }
-        guard blockInfoCompressedSize <= UInt64(Int.max - infoOffset) else { throw AssetBundleError.malformed("block info size exceeds addressable range") }
+        guard infoOffset >= 0,
+              infoOffset <= data.count,
+              blockInfoCompressedSize <= UInt64(data.count - infoOffset),
+              blockInfoCompressedSize <= UInt64(Int.max - infoOffset) else {
+            throw AssetBundleError.malformed("invalid block info range")
+        }
         let infoEnd = infoOffset + Int(blockInfoCompressedSize)
-        guard infoEnd >= infoOffset else { throw AssetBundleError.malformed("invalid block info range") }
         let infoBytes = Data(data[infoOffset..<infoEnd])
         let directory = try decodeBlockInfo(infoBytes, compression: compression, expectedSize: Int(blockInfoDecompressedSize))
         let blocks = directory.blocks
@@ -104,14 +108,13 @@ struct AssetBundleParser {
         } else {
             bundleCompression = .mixed
         }
-        guard dataOffset >= 0, dataOffset <= data.count else { throw AssetBundleError.malformed("invalid data offset") }
         let blockDataOffset: Int
         if flags & 0x80 != 0 {
-            guard let firstBlockEnd = checkedAdd(Int64(alignedDataStart), Int64(blocks.first?.compressedSize ?? 0)) else { throw AssetBundleError.malformed("invalid block data offset") }
-            blockDataOffset = alignedDataStart
-            guard firstBlockEnd <= Int64(data.count) else { throw AssetBundleError.malformed("block data exceeds file") }
+            blockDataOffset = headerEnd
         } else {
-            blockDataOffset = dataOffset + ((flags & 0x200 != 0) ? ((16 - (dataOffset % 16)) % 16) : 0)
+            guard let rawDataOffset = checkedAdd(Int64(headerEnd), Int64(blockInfoCompressedSize)) else { throw AssetBundleError.malformed("invalid data offset") }
+            let dataOffset = Int(rawDataOffset)
+            blockDataOffset = flags & 0x200 != 0 ? (dataOffset + 15) & ~15 : dataOffset
         }
         guard blockDataOffset >= 0, blockDataOffset <= data.count else { throw AssetBundleError.malformed("invalid block data offset") }
         let uncompressedData = try decodeData(data: data, dataOffset: blockDataOffset, blocks: blocks)
