@@ -31,12 +31,12 @@ internal static class Program
 
             return args[0] switch
             {
-                "inspect" => Inspect(args),
-                "objects" => Objects(args),
-                "fields" => Fields(args),
-                "edit" => Edit(args),
-                "bundle-entries" => BundleEntries(args),
-                "extract" => Extract(args),
+                "inspect" => InspectCommand(args),
+                "objects" => ObjectsCommand(args),
+                "fields" => FieldsCommand(args),
+                "edit" => EditCommand(args),
+                "bundle-entries" => BundleEntriesCommand(args),
+                "extract" => ExtractCommand(args),
                 _ => Fail(InvalidArguments, $"unknown command: {args[0]}")
             };
         }
@@ -49,32 +49,41 @@ internal static class Program
     internal static string Inspect(string path)
     {
         using FileStream stream = File.OpenRead(path);
-        AssetsFileReader reader = new(stream);
+        using AssetsFileReader reader = new(stream);
+
         if (AssetsFile.IsAssetsFile(reader, 0, stream.Length))
         {
-            stream.Position = 0;
-            AssetsFile assetsFile = new();
-            assetsFile.Read(new AssetsFileReader(stream));
-            return JsonSerializer.Serialize(new
+            AssetsManager manager = new();
+            try
             {
-                kind = "serializedFile",
-                formatVersion = assetsFile.Header.Version,
-                fileSize = assetsFile.Header.FileSize,
-                metadataSize = assetsFile.Header.MetadataSize,
-                dataOffset = assetsFile.Header.DataOffset,
-                unityVersion = assetsFile.Metadata.UnityVersion,
-                targetPlatform = assetsFile.Metadata.TargetPlatform,
-                objectCount = assetsFile.Metadata.AssetInfos.Count,
-                typeCount = assetsFile.Metadata.TypeTreeTypes.Count,
-                externalCount = assetsFile.Metadata.Externals.Count,
-                isBigEndian = assetsFile.Header.Endianness,
-                typeTreeEnabled = assetsFile.Metadata.TypeTreeEnabled
-            }, JsonOptions);
+                AssetsFileInstance instance = manager.LoadAssetsFile(path, false);
+                AssetsFile assetsFile = instance.file;
+                return JsonSerializer.Serialize(new
+                {
+                    kind = "serializedFile",
+                    formatVersion = assetsFile.Header.Version,
+                    fileSize = assetsFile.Header.FileSize,
+                    metadataSize = assetsFile.Header.MetadataSize,
+                    dataOffset = assetsFile.Header.DataOffset,
+                    unityVersion = assetsFile.Metadata.UnityVersion,
+                    targetPlatform = assetsFile.Metadata.TargetPlatform,
+                    objectCount = assetsFile.Metadata.AssetInfos.Count,
+                    typeCount = assetsFile.Metadata.TypeTreeTypes.Count,
+                    externalCount = assetsFile.Metadata.Externals.Count,
+                    isBigEndian = assetsFile.Header.Endianness,
+                    typeTreeEnabled = assetsFile.Metadata.TypeTreeEnabled
+                }, JsonOptions);
+            }
+            finally
+            {
+                manager.UnloadAll();
+            }
         }
 
         stream.Position = 0;
+        using AssetsFileReader bundleReader = new(stream);
         AssetBundleFile bundle = new();
-        bundle.Read(new AssetsFileReader(stream));
+        bundle.Read(bundleReader);
         return JsonSerializer.Serialize(new
         {
             kind = "assetBundle",
@@ -88,7 +97,7 @@ internal static class Program
         }, JsonOptions);
     }
 
-    private static int Inspect(string[] args)
+    private static int InspectCommand(string[] args)
     {
         if (args.Length != 2)
             return Fail(InvalidArguments, "usage: inspect <path>");
@@ -96,21 +105,20 @@ internal static class Program
         return Success;
     }
 
-    private static int Objects(string[] args)
+    private static int ObjectsCommand(string[] args)
     {
         if (args.Length != 2)
             return Fail(InvalidArguments, "usage: objects <path>");
-
         using BridgeDocument document = BridgeDocument.Open(args[1]);
         if (document.Assets is null)
             return Fail(InvalidArguments, "objects is available only for SerializedFiles");
 
-        WriteJson(document.Assets.File.Metadata.AssetInfos.Select(info => new
+        WriteJson(document.Assets.file.Metadata.AssetInfos.Select(info => new
         {
             id = $"{info.PathId}",
             pathID = info.PathId,
-            typeID = info.GetTypeId(document.Assets.File),
-            byteOffset = info.GetAbsoluteByteOffset(document.Assets.File),
+            typeID = info.GetTypeId(document.Assets.file),
+            byteOffset = info.GetAbsoluteByteOffset(document.Assets.file),
             byteSize = info.ByteSize,
             typeName = TypeName(document.Assets, info),
             displayName = $"{TypeName(document.Assets, info)} ({info.PathId})"
@@ -118,16 +126,14 @@ internal static class Program
         return Success;
     }
 
-    private static int Fields(string[] args)
+    private static int FieldsCommand(string[] args)
     {
         if (args.Length != 3 || !long.TryParse(args[2], out long pathID))
             return Fail(InvalidArguments, "usage: fields <path> <pathID>");
-
         using BridgeDocument document = BridgeDocument.Open(args[1]);
         if (document.Assets is null)
             return Fail(InvalidArguments, "fields is available only for SerializedFiles");
-
-        AssetFileInfo info = document.Assets.File.GetAssetInfo(pathID) ?? throw new InvalidDataException("object not found");
+        AssetFileInfo info = document.Assets.file.GetAssetInfo(pathID) ?? throw new InvalidDataException("object not found");
         AssetTypeValueField baseField = document.Manager.GetBaseField(document.Assets, info);
         List<FieldRow> fields = new();
         Walk(baseField, baseField.FieldName, 0, fields);
@@ -135,7 +141,7 @@ internal static class Program
         return Success;
     }
 
-    private static int Edit(string[] args)
+    private static int EditCommand(string[] args)
     {
         if (args.Length != 5 || !long.TryParse(args[2], out long pathID))
             return Fail(InvalidArguments, "usage: edit <path> <pathID> <fieldPath> <value>");
@@ -147,16 +153,14 @@ internal static class Program
             using BridgeDocument document = BridgeDocument.Open(path);
             if (document.Assets is null)
                 return Fail(InvalidArguments, "edit is available only for SerializedFiles");
-
-            AssetFileInfo info = document.Assets.File.GetAssetInfo(pathID) ?? throw new InvalidDataException("object not found");
+            AssetFileInfo info = document.Assets.file.GetAssetInfo(pathID) ?? throw new InvalidDataException("object not found");
             AssetTypeValueField baseField = document.Manager.GetBaseField(document.Assets, info);
             AssetTypeValueField field = FindField(baseField, args[3]) ?? throw new InvalidDataException($"field not found: {args[3]}");
             SetField(field, args[4]);
             info.SetNewData(baseField.WriteToByteArray());
-
             using FileStream output = File.Create(tempPath);
             using AssetsFileWriter writer = new(output);
-            document.Assets.File.Write(writer);
+            document.Assets.file.Write(writer);
             File.Move(tempPath, path, true);
             WriteJson(new { ok = true, pathID, fieldPath = args[3] });
             return Success;
@@ -168,16 +172,14 @@ internal static class Program
         }
     }
 
-    private static int BundleEntries(string[] args)
+    private static int BundleEntriesCommand(string[] args)
     {
         if (args.Length != 2)
             return Fail(InvalidArguments, "usage: bundle-entries <path>");
-
         using BridgeDocument document = BridgeDocument.Open(args[1]);
         if (document.Bundle is null)
             return Fail(InvalidArguments, "bundle-entries is available only for AssetBundles");
-
-        WriteJson(document.Bundle.File.BlockAndDirInfo.DirectoryInfos.Select((entry, index) => new
+        WriteJson(document.Bundle.file.BlockAndDirInfo.DirectoryInfos.Select((entry, index) => new
         {
             id = index,
             name = entry.Name,
@@ -188,20 +190,19 @@ internal static class Program
         return Success;
     }
 
-    private static int Extract(string[] args)
+    private static int ExtractCommand(string[] args)
     {
         if (args.Length != 4 || !int.TryParse(args[2], out int index))
             return Fail(InvalidArguments, "usage: extract <path> <entryIndex> <outputPath>");
-
         using BridgeDocument document = BridgeDocument.Open(args[1]);
         if (document.Bundle is null)
             return Fail(InvalidArguments, "extract is available only for AssetBundles");
-        if (index < 0 || index >= document.Bundle.File.BlockAndDirInfo.DirectoryInfos.Count)
+        if (index < 0 || index >= document.Bundle.file.BlockAndDirInfo.DirectoryInfos.Count)
             return Fail(InvalidArguments, "entry index is out of range");
 
-        document.Bundle.File.GetFileRange(index, out long offset, out long length);
-        document.Bundle.File.DataReader.Position = offset;
-        byte[] data = document.Bundle.File.DataReader.ReadBytes((int)length);
+        document.Bundle.file.GetFileRange(index, out long offset, out long length);
+        document.Bundle.file.DataReader.Position = offset;
+        byte[] data = document.Bundle.file.DataReader.ReadBytes((int)length);
         File.WriteAllBytes(args[3], data);
         WriteJson(new { ok = true, path = args[3], bytes = data.Length });
         return Success;
@@ -209,7 +210,7 @@ internal static class Program
 
     private static string TypeName(AssetsFileInstance assets, AssetFileInfo info)
     {
-        int typeID = info.GetTypeId(assets.File);
+        int typeID = info.GetTypeId(assets.file);
         return Enum.IsDefined(typeof(AssetClassID), typeID)
             ? ((AssetClassID)typeID).ToString()
             : $"ClassID {typeID}";
@@ -219,11 +220,9 @@ internal static class Program
     {
         if (output.Count >= MaxFields || depth > MaxDepth || field.IsDummy)
             return;
-
         string value = ValueString(field);
         bool editable = field.Children.Count == 0 && field.TemplateField.ValueType is not AssetValueType.None and not AssetValueType.Array;
         output.Add(new FieldRow($"{depth}:{path}", path, field.TypeName, value, depth, editable));
-
         if (field.TemplateField.ValueType == AssetValueType.ByteArray)
             return;
         for (int index = 0; index < field.Children.Count && output.Count < MaxFields; index++)
@@ -239,7 +238,6 @@ internal static class Program
         string normalized = path == root.FieldName ? string.Empty : path.StartsWith(root.FieldName + ".", StringComparison.Ordinal) ? path[(root.FieldName.Length + 1)..] : path;
         if (normalized.Length == 0)
             return root;
-
         AssetTypeValueField current = root;
         foreach (string segment in normalized.Split('.', StringSplitOptions.RemoveEmptyEntries))
         {
@@ -339,15 +337,8 @@ internal static class Program
         return code;
     }
 
-    private static void WriteJson<T>(T value)
-    {
-        Console.Out.WriteLine(JsonSerializer.Serialize(value, JsonOptions));
-    }
-
-    private static void WriteError(string message)
-    {
-        Console.Error.WriteLine(message);
-    }
+    private static void WriteJson<T>(T value) => Console.Out.WriteLine(JsonSerializer.Serialize(value, JsonOptions));
+    private static void WriteError(string message) => Console.Error.WriteLine(message);
 
     private sealed record FieldRow(string Id, string Name, string Type, string Value, int Depth, bool Editable);
 
@@ -370,15 +361,11 @@ internal static class Program
             try
             {
                 using FileStream stream = File.OpenRead(path);
-                AssetsFileReader reader = new(stream);
+                using AssetsFileReader reader = new(stream);
                 if (AssetsFile.IsAssetsFile(reader, 0, stream.Length))
-                {
-                    AssetsFileInstance assets = manager.LoadAssetsFile(path, false);
-                    return new BridgeDocument(manager, assets, null);
-                }
+                    return new BridgeDocument(manager, manager.LoadAssetsFile(path, false), null);
 
-                BundleFileInstance bundle = manager.LoadBundleFile(path, true);
-                return new BridgeDocument(manager, null, bundle);
+                return new BridgeDocument(manager, null, manager.LoadBundleFile(path, true));
             }
             catch
             {
@@ -387,9 +374,6 @@ internal static class Program
             }
         }
 
-        public void Dispose()
-        {
-            Manager.UnloadAll();
-        }
+        public void Dispose() => Manager.UnloadAll();
     }
 }
