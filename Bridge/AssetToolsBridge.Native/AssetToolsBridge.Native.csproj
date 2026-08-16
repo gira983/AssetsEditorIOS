@@ -4,17 +4,15 @@
     <OutputType>Library</OutputType>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PublishAot>true</PublishAot>
-    <SelfContained>true</SelfContained>
     <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
     <InvariantGlobalization>true</InvariantGlobalization>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <StripSymbols>true</StripSymbols>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="NativeExports.cs" />
     <ProjectReference Include="../AssetToolsBridge.Managed/AssetToolsBridge.Managed.csproj" />
   </ItemGroup>
 </Project>
