@@ -4,14 +4,10 @@
     <OutputType>Library</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PublishTrimmed>true</PublishTrimmed>
+    <PublishTrimmed>false</PublishTrimmed>
     <InvariantGlobalization>true</InvariantGlobalization>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <EnableDynamicLoading>false</EnableDynamicLoading>
-    <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>ios-arm64</RuntimeIdentifier>
-    <NativeLib>Shared</NativeLib>
-    <StripSymbols>true</StripSymbols>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AssetToolsBridge.Managed\AssetToolsBridge.Managed.csproj" />
