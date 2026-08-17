@@ -74,7 +74,7 @@ public sealed class BridgeDocument : IDisposable
             return new BridgeDocumentInfo(
                 bundleFile.path,
                 "asset-bundle",
-                bundleFile.file.DirectoryInfo.Count,
+                bundleFile.file.BlockAndDirInfo.DirectoryInfos.Count,
                 bundleFile.file.Header?.EngineVersion);
         }
 
@@ -97,7 +97,7 @@ public sealed class BridgeDocument : IDisposable
 
         if (bundleFile is not null)
         {
-            return bundleFile.file.DirectoryInfo.DirectoryInfos.Select(info => new BridgeAssetInfo(
+            return bundleFile.file.BlockAndDirInfo.DirectoryInfos.Select(info => new BridgeAssetInfo(
                 info.Name,
                 0,
                 0,
