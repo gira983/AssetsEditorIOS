@@ -10,6 +10,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <StripSymbols>true</StripSymbols>
     <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AssetToolsBridge.Managed\AssetToolsBridge.Managed.csproj" />
