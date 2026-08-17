@@ -1,5 +1,4 @@
 import Foundation
-
 #if canImport(UnityAssetEditorBridge)
 import UnityAssetEditorBridge
 #endif
@@ -29,6 +28,14 @@ struct NativeBridgeClient {
 
     func inspect(path: String) throws -> Data {
         try execute(["operation": "inspect", "path": path])
+    }
+
+    func listObjects(path: String) throws -> Data {
+        try execute(["operation": "listObjects", "path": path])
+    }
+
+    func getFields(path: String, pathId: Int64) throws -> Data {
+        try execute(["operation": "getFields", "path": path, "pathId": pathId])
     }
 
     func updateField(path: String, pathId: Int64, fieldPath: String, value: String, outputPath: String) throws {
