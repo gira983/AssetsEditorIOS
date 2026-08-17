@@ -1,17 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <OutputType>Library</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PublishAot>true</PublishAot>
+    <PublishAotUsingRuntimePack>true</PublishAotUsingRuntimePack>
     <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>ios-arm64</RuntimeIdentifier>
     <InvariantGlobalization>true</InvariantGlobalization>
     <StripSymbols>false</StripSymbols>
     <PublishTrimmed>true</PublishTrimmed>
     <IsTrimmable>false</IsTrimmable>
+    <NativeLib>Shared</NativeLib>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AssetToolsBridge.Managed\AssetToolsBridge.Managed.csproj" />
