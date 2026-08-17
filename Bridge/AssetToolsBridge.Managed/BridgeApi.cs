@@ -54,35 +54,23 @@ public sealed class BridgeDocument : IDisposable
         }
 
         if (bundleFile is not null)
-        {
-            var serializedCount = bundleFile.file.GetAllFileNames().Count(name => bundleFile.file.IsAssetsFile(bundleFile.file.GetFileIndex(name)));
-            return new BridgeDocumentInfo(bundleFile.path, "asset-bundle", serializedCount, bundleFile.file.Header?.EngineVersion);
-        }
+            return new BridgeDocumentInfo(bundleFile.path, "asset-bundle", bundleFile.file.DirectoryInfo.Count, null);
 
         throw new InvalidOperationException("No document is open.");
     }
 
     public IReadOnlyList<BridgeAssetInfo> ListAssets()
     {
-        if (assetsFile is not null)
-        {
-            return assetsFile.file.AssetInfos.Select(info => new BridgeAssetInfo(
-                assetsFile.path,
-                info.PathId,
-                info.TypeId,
-                info.ByteSize,
-                info.TypeId.ToString(),
-                null)).ToArray();
-        }
+        if (assetsFile is null)
+            throw new NotSupportedException("Asset listing inside bundles is not exposed by this bridge yet.");
 
-        if (bundleFile is not null)
-        {
-            return bundleFile.file.GetAllFileNames()
-                .Select(name => new BridgeAssetInfo(name, 0, 0, 0, "serialized-file", null))
-                .ToArray();
-        }
-
-        throw new InvalidOperationException("No document is open.");
+        return assetsFile.file.AssetInfos.Select(info => new BridgeAssetInfo(
+            assetsFile.path,
+            info.PathId,
+            info.TypeId,
+            info.ByteSize,
+            info.TypeId.ToString(),
+            null)).ToArray();
     }
 
     public void Dispose() => manager.UnloadAll();
@@ -92,7 +80,7 @@ public sealed class BridgeDocument : IDisposable
         using var stream = File.OpenRead(path);
         Span<byte> magic = stackalloc byte[7];
         var read = stream.Read(magic);
-        return read == 7 && (magic.SequenceEqual("UnityFS"u8) || magic.SequenceEqual("UnityRaw"u8) || magic.SequenceEqual("UnityWeb"u8));
+        return read == 7 && magic.SequenceEqual("UnityFS"u8);
     }
 }
 
