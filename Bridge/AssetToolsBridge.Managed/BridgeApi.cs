@@ -34,18 +34,26 @@ public sealed class BridgeDocument : IDisposable
     public static BridgeDocument Open(string path)
     {
         var manager = new AssetsManager();
-        if (IsBundle(path))
+        try
         {
-            var bundle = manager.LoadBundleFile(path, true);
-            if (bundle is null)
-                throw new InvalidDataException("AssetsTools.NET could not load the bundle.");
-            return new BridgeDocument(manager, null, bundle);
-        }
+            if (IsBundle(path))
+            {
+                var bundle = manager.LoadBundleFile(path, true);
+                if (bundle is null)
+                    throw new InvalidDataException("AssetsTools.NET could not load the bundle.");
+                return new BridgeDocument(manager, null, bundle);
+            }
 
-        var assets = manager.LoadAssetsFile(path, true);
-        if (assets is null)
-            throw new InvalidDataException("AssetsTools.NET could not load the serialized file.");
-        return new BridgeDocument(manager, assets, null);
+            var assets = manager.LoadAssetsFile(path, true);
+            if (assets is null)
+                throw new InvalidDataException("AssetsTools.NET could not load the serialized file.");
+            return new BridgeDocument(manager, assets, null);
+        }
+        catch
+        {
+            manager.UnloadAll();
+            throw;
+        }
     }
 
     public BridgeDocumentInfo GetInfo()
@@ -86,10 +94,7 @@ public sealed class BridgeDocument : IDisposable
             null)).ToArray();
     }
 
-    public void Dispose()
-    {
-        manager.UnloadAll();
-    }
+    public void Dispose() => manager.UnloadAll();
 
     private static bool IsBundle(string path)
     {
