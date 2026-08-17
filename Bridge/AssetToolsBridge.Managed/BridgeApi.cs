@@ -1,6 +1,8 @@
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
+using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace AssetToolsBridge.Managed;
 
@@ -21,6 +23,7 @@ public sealed class BridgeDocument : IDisposable
     {
         if (!File.Exists(path))
             throw new FileNotFoundException("Input file was not found.", path);
+
         var manager = new AssetsManager();
         try
         {
@@ -29,6 +32,7 @@ public sealed class BridgeDocument : IDisposable
                 var bundle = manager.LoadBundleFile(path, true) ?? throw new InvalidDataException("AssetsTools.NET could not load the bundle.");
                 return new BridgeDocument(manager, null, bundle);
             }
+
             var assets = manager.LoadAssetsFile(path, false) ?? throw new InvalidDataException("AssetsTools.NET could not load the serialized file.");
             return new BridgeDocument(manager, assets, null);
         }
@@ -39,82 +43,164 @@ public sealed class BridgeDocument : IDisposable
         }
     }
 
-    public object Inspect()
+    public JsonObject Inspect()
     {
         if (assetsFile is not null)
         {
-            return new
+            var assets = new JsonArray();
+            foreach (var info in assetsFile.file.AssetInfos)
             {
-                info = new { path = assetsFile.path, kind = "serializedFile", assetCount = assetsFile.file.AssetInfos.Count, unityVersion = assetsFile.file.Metadata.UnityVersion },
-                assets = assetsFile.file.AssetInfos.Select(info => new { fileName = Path.GetFileName(assetsFile.path), pathId = info.PathId, classId = info.GetTypeId(assetsFile.file), byteSize = info.ByteSize, assetType = info.GetTypeId(assetsFile.file).ToString(), name = (string?)null })
+                var typeId = info.GetTypeId(assetsFile.file);
+                assets.Add(new JsonObject
+                {
+                    ["fileName"] = Path.GetFileName(assetsFile.path),
+                    ["pathId"] = info.PathId,
+                    ["classId"] = typeId,
+                    ["byteSize"] = info.ByteSize,
+                    ["assetType"] = typeId.ToString(CultureInfo.InvariantCulture),
+                    ["name"] = null
+                });
+            }
+
+            return new JsonObject
+            {
+                ["info"] = new JsonObject
+                {
+                    ["path"] = assetsFile.path,
+                    ["kind"] = "serializedFile",
+                    ["assetCount"] = assetsFile.file.AssetInfos.Count,
+                    ["unityVersion"] = assetsFile.file.Metadata.UnityVersion
+                },
+                ["assets"] = assets
             };
         }
+
         if (bundleFile is not null)
         {
-            return new
+            var assets = new JsonArray();
+            foreach (var directory in bundleFile.file.BlockAndDirInfo.DirectoryInfos)
             {
-                info = new { path = bundleFile.path, kind = "assetBundle", assetCount = bundleFile.file.BlockAndDirInfo.DirectoryInfos.Count, unityVersion = bundleFile.file.Header.EngineVersion },
-                assets = bundleFile.file.BlockAndDirInfo.DirectoryInfos.Select(directory => new { fileName = directory.Name, pathId = 0L, classId = 0, byteSize = (long)directory.DecompressedSize, assetType = "bundleEntry", name = directory.Name })
+                assets.Add(new JsonObject
+                {
+                    ["fileName"] = directory.Name,
+                    ["pathId"] = 0L,
+                    ["classId"] = 0,
+                    ["byteSize"] = (long)directory.DecompressedSize,
+                    ["assetType"] = "bundleEntry",
+                    ["name"] = directory.Name
+                });
+            }
+
+            return new JsonObject
+            {
+                ["info"] = new JsonObject
+                {
+                    ["path"] = bundleFile.path,
+                    ["kind"] = "assetBundle",
+                    ["assetCount"] = bundleFile.file.BlockAndDirInfo.DirectoryInfos.Count,
+                    ["unityVersion"] = bundleFile.file.Header.EngineVersion
+                },
+                ["assets"] = assets
             };
         }
+
         throw new InvalidOperationException("The document has no loaded file.");
     }
 
-    public object ListObjects()
+    public JsonObject ListObjects()
     {
+        var objects = new JsonArray();
         if (assetsFile is null)
-            return new { objects = Array.Empty<object>() };
-        return new
+            return new JsonObject { ["objects"] = objects };
+
+        foreach (var info in assetsFile.file.AssetInfos)
         {
-            objects = assetsFile.file.AssetInfos.Select(info => new { id = $"{info.PathId}:{info.GetTypeId(assetsFile.file)}", pathID = info.PathId, typeID = info.GetTypeId(assetsFile.file), byteOffset = (ulong)info.GetAbsoluteByteOffset(assetsFile.file.Header), byteSize = (ulong)info.ByteSize, typeName = info.GetTypeId(assetsFile.file).ToString(), displayName = $"{info.GetTypeId(assetsFile.file)} • {info.PathId}" }).ToArray()
-        };
+            var typeId = info.GetTypeId(assetsFile.file);
+            objects.Add(new JsonObject
+            {
+                ["id"] = $"{info.PathId}:{typeId}",
+                ["pathID"] = info.PathId,
+                ["typeID"] = typeId,
+                ["byteOffset"] = (ulong)info.GetAbsoluteByteOffset(assetsFile.file.Header),
+                ["byteSize"] = (ulong)info.ByteSize,
+                ["typeName"] = typeId.ToString(CultureInfo.InvariantCulture),
+                ["displayName"] = $"{typeId} • {info.PathId}"
+            });
+        }
+
+        return new JsonObject { ["objects"] = objects };
     }
 
-    public object GetFields(long pathId)
+    public JsonObject GetFields(long pathId)
     {
         if (assetsFile is null)
             throw new InvalidOperationException("Fields are available only for serialized files.");
+
         var info = assetsFile.file.GetAssetInfo(pathId) ?? throw new KeyNotFoundException($"Asset {pathId} was not found.");
         var field = manager.GetBaseField(assetsFile, info);
-        var fields = new List<object>();
+        var fields = new JsonArray();
         Flatten(field, field.FieldName, 0, fields);
-        return new { fields = fields.ToArray() };
+        return new JsonObject { ["fields"] = fields };
     }
 
     public void UpdateField(long pathId, string fieldPath, string value, string outputPath)
     {
         if (assetsFile is null)
             throw new InvalidOperationException("Field updates are available only for serialized files.");
+
         var info = assetsFile.file.GetAssetInfo(pathId) ?? throw new KeyNotFoundException($"Asset {pathId} was not found.");
         var field = manager.GetBaseField(assetsFile, info);
         var target = field[fieldPath];
         if (target.IsDummy)
             throw new KeyNotFoundException($"Field {fieldPath} was not found.");
+
         SetValue(target, value);
-        info.SetNewData(field);
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
-        using var writer = new AssetsFileWriter(outputPath);
-        assetsFile.file.Write(writer);
+        info.SetNewData(field.WriteToByteArray(assetsFile.file.Reader.BigEndian));
+        WriteSerializedFile(outputPath);
     }
 
     public void WriteBundle(string outputPath)
     {
         if (bundleFile is null)
             throw new InvalidOperationException("The opened document is not an AssetBundle.");
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
+
+        EnsureParentDirectory(outputPath);
         using var writer = new AssetsFileWriter(outputPath);
         bundleFile.file.Write(writer);
     }
 
     public void Dispose() => manager.UnloadAll();
 
-    private static void Flatten(AssetTypeValueField field, string path, int depth, List<object> result)
+    private void WriteSerializedFile(string outputPath)
+    {
+        EnsureParentDirectory(outputPath);
+        using var writer = new AssetsFileWriter(outputPath);
+        assetsFile!.file.Write(writer);
+    }
+
+    private static void EnsureParentDirectory(string outputPath)
+    {
+        var parent = Path.GetDirectoryName(Path.GetFullPath(outputPath));
+        if (!string.IsNullOrEmpty(parent))
+            Directory.CreateDirectory(parent);
+    }
+
+    private static void Flatten(AssetTypeValueField field, string path, int depth, JsonArray result)
     {
         if (field.Children.Count == 0)
         {
-            result.Add(new { id = path, name = path, type = field.TypeName, value = field.AsString, depth, editable = field.TemplateField.HasValue });
+            result.Add(new JsonObject
+            {
+                ["id"] = path,
+                ["name"] = path,
+                ["type"] = field.TypeName,
+                ["value"] = field.AsString,
+                ["depth"] = depth,
+                ["editable"] = field.TemplateField.HasValue
+            });
             return;
         }
+
         foreach (var child in field.Children)
             Flatten(child, $"{path}.{child.FieldName}", depth + 1, result);
     }
@@ -124,16 +210,16 @@ public sealed class BridgeDocument : IDisposable
         switch (field.TemplateField.ValueType)
         {
             case AssetValueType.Bool: field.AsBool = ParseBool(value); break;
-            case AssetValueType.Int8: field.AsSByte = sbyte.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
-            case AssetValueType.UInt8: field.AsByte = byte.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
-            case AssetValueType.Int16: field.AsShort = short.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
-            case AssetValueType.UInt16: field.AsUShort = ushort.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
-            case AssetValueType.Int32: field.AsInt = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
-            case AssetValueType.UInt32: field.AsUInt = uint.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
-            case AssetValueType.Int64: field.AsLong = long.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
-            case AssetValueType.UInt64: field.AsULong = ulong.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
-            case AssetValueType.Float: field.AsFloat = float.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
-            case AssetValueType.Double: field.AsDouble = double.Parse(value, System.Globalization.CultureInfo.InvariantCulture); break;
+            case AssetValueType.Int8: field.AsSByte = sbyte.Parse(value, CultureInfo.InvariantCulture); break;
+            case AssetValueType.UInt8: field.AsByte = byte.Parse(value, CultureInfo.InvariantCulture); break;
+            case AssetValueType.Int16: field.AsShort = short.Parse(value, CultureInfo.InvariantCulture); break;
+            case AssetValueType.UInt16: field.AsUShort = ushort.Parse(value, CultureInfo.InvariantCulture); break;
+            case AssetValueType.Int32: field.AsInt = int.Parse(value, CultureInfo.InvariantCulture); break;
+            case AssetValueType.UInt32: field.AsUInt = uint.Parse(value, CultureInfo.InvariantCulture); break;
+            case AssetValueType.Int64: field.AsLong = long.Parse(value, CultureInfo.InvariantCulture); break;
+            case AssetValueType.UInt64: field.AsULong = ulong.Parse(value, CultureInfo.InvariantCulture); break;
+            case AssetValueType.Float: field.AsFloat = float.Parse(value, CultureInfo.InvariantCulture); break;
+            case AssetValueType.Double: field.AsDouble = double.Parse(value, CultureInfo.InvariantCulture); break;
             case AssetValueType.String: field.AsString = value; break;
             default: throw new NotSupportedException($"Field type {field.TypeName} is not editable.");
         }
@@ -157,6 +243,8 @@ public sealed class BridgeDocument : IDisposable
 
 public static class BridgeApi
 {
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
+
     public static string Execute(string request)
     {
         using var document = JsonDocument.Parse(request);
@@ -164,7 +252,7 @@ public static class BridgeApi
         var operation = root.GetProperty("operation").GetString() ?? throw new InvalidDataException("Missing operation.");
         var path = root.GetProperty("path").GetString() ?? throw new InvalidDataException("Missing path.");
         using var opened = BridgeDocument.Open(path);
-        object result = operation switch
+        var result = operation switch
         {
             "inspect" => opened.Inspect(),
             "listObjects" => opened.ListObjects(),
@@ -173,21 +261,22 @@ public static class BridgeApi
             "writeBundle" => WriteBundle(opened, root),
             _ => throw new NotSupportedException($"Unknown operation: {operation}")
         };
-        return JsonSerializer.Serialize(new { ok = true, result }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        return new JsonObject { ["ok"] = true, ["result"] = result }.ToJsonString(JsonOptions);
     }
 
-    public static string Error(string message) => JsonSerializer.Serialize(new { ok = false, error = message });
-    public static string Inspect(string path) => Execute(JsonSerializer.Serialize(new { operation = "inspect", path }));
+    public static string Error(string message) => new JsonObject { ["ok"] = false, ["error"] = message }.ToJsonString(JsonOptions);
 
-    private static object Update(BridgeDocument document, JsonElement root)
+    public static string Inspect(string path) => Execute(new JsonObject { ["operation"] = "inspect", ["path"] = path }.ToJsonString(JsonOptions));
+
+    private static JsonObject Update(BridgeDocument document, JsonElement root)
     {
         document.UpdateField(root.GetProperty("pathId").GetInt64(), root.GetProperty("fieldPath").GetString()!, root.GetProperty("value").GetString()!, root.GetProperty("outputPath").GetString()!);
-        return new { written = true };
+        return new JsonObject { ["written"] = true };
     }
 
-    private static object WriteBundle(BridgeDocument document, JsonElement root)
+    private static JsonObject WriteBundle(BridgeDocument document, JsonElement root)
     {
         document.WriteBundle(root.GetProperty("outputPath").GetString()!);
-        return new { written = true };
+        return new JsonObject { ["written"] = true };
     }
 }

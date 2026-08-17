@@ -1,5 +1,9 @@
-# NativeAOT bridge proof of concept
+# AssetsTools.NET iOS bridge
 
-This project is intentionally a separate proof-of-concept target. It verifies that the selected .NET NativeAOT toolchain can emit an iOS-compatible native library and that Swift can consume a C ABI. It does not yet expose AssetsTools.NET operations.
+`AssetToolsBridge.Managed` is the functional AssetsTools.NET adapter. `AssetToolsBridge.Native` publishes that adapter with .NET NativeAOT and exports the C ABI function `uae_bridge_execute`.
 
-The managed worker in `Bridge/AssetToolsBridge.Managed/` is the functional AssetsTools.NET adapter for this stage. The native target becomes the production adapter only after the same upstream operations pass device and simulator builds.
+CI publishes the native target for `ios-arm64`, packages the resulting dylib as `Bridge/Build/UnityAssetEditorBridge.framework`, and links and embeds that framework into the Swift application. The framework contains the generated C header and module map consumed by `NativeBridgeClient`.
+
+The iOS NativeAOT target is intentionally built separately from the Swift target: Swift never imports managed types or NuGet assemblies. The boundary is UTF-8 JSON over a small C ABI.
+
+For a local device build, run the same bridge publish and framework-packaging steps before opening Xcode. A build without that generated framework must remain an explicit unavailable development configuration; it is not a parser implementation.

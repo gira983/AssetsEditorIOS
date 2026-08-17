@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 using System.Text;
 using AssetToolsBridge.Managed;
 
@@ -6,7 +7,7 @@ namespace AssetToolsBridge.Native;
 
 public static unsafe class NativeExports
 {
-    [UnmanagedCallersOnly(EntryPoint = "uae_bridge_execute")]
+    [UnmanagedCallersOnly(EntryPoint = "uae_bridge_execute", CallConvs = new[] { typeof(CallConvCdecl) })]
     public static int Execute(byte* requestUtf8, byte* outputUtf8, int outputCapacity)
     {
         if (requestUtf8 == null || outputUtf8 == null || outputCapacity <= 0)

@@ -1,4 +1,4 @@
-module UnityAssetEditorBridge {
-    header "UnityAssetEditorBridge.h"
+framework module UnityAssetEditorBridge {
+    umbrella header "UnityAssetEditorBridge.h"
     export *
 }
