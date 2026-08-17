@@ -4,8 +4,19 @@ using System.Text.Json;
 
 namespace AssetToolsBridge.Managed;
 
-public sealed record BridgeAssetInfo(string FileName, long PathId, int ClassId, long ByteSize, string AssetType, string? Name);
-public sealed record BridgeDocumentInfo(string Path, string Kind, int AssetCount, string? UnityVersion);
+public sealed record BridgeAssetInfo(
+    string FileName,
+    long PathId,
+    int ClassId,
+    long ByteSize,
+    string AssetType,
+    string? Name);
+
+public sealed record BridgeDocumentInfo(
+    string Path,
+    string Kind,
+    int AssetCount,
+    string? UnityVersion);
 
 public sealed class BridgeDocument : IDisposable
 {
@@ -48,35 +59,57 @@ public sealed class BridgeDocument : IDisposable
     public BridgeDocumentInfo GetInfo()
     {
         if (assetsFile is not null)
-            return new BridgeDocumentInfo(assetsFile.path, "serializedFile", assetsFile.file.AssetInfos.Count, assetsFile.file.Metadata.UnityVersion);
+        {
+            var header = assetsFile.file.Header;
+            return new BridgeDocumentInfo(
+                assetsFile.path,
+                "serializedFile",
+                assetsFile.file.AssetInfos.Count,
+                header.UnityVersion);
+        }
 
-        var bundle = bundleFile ?? throw new InvalidOperationException("Document is not open.");
-        var entries = bundle.file.DirectoryInfo?.DirectoryInfos;
-        return new BridgeDocumentInfo(bundle.path, "assetBundle", entries?.Count ?? 0, bundle.file.Header?.UnityVersion);
+        if (bundleFile is not null)
+        {
+            return new BridgeDocumentInfo(
+                bundleFile.path,
+                "assetBundle",
+                bundleFile.file.GetFileCount(),
+                bundleFile.file.Header?.UnityVersion);
+        }
+
+        throw new InvalidOperationException("The document has no loaded file.");
     }
 
     public IReadOnlyList<BridgeAssetInfo> ListAssets()
     {
         if (assetsFile is not null)
         {
-            return assetsFile.file.AssetInfos.Select(info => new BridgeAssetInfo(
-                Path.GetFileName(assetsFile.path),
-                info.PathId,
-                info.TypeId,
-                info.ByteSize,
-                info.TypeId.ToString(),
-                null)).ToArray();
+            return assetsFile.file.AssetInfos
+                .Select(info => new BridgeAssetInfo(
+                    Path.GetFileName(assetsFile.path),
+                    info.PathId,
+                    info.TypeId,
+                    info.ByteSize,
+                    info.TypeId.ToString(),
+                    null))
+                .ToArray();
         }
 
-        var bundle = bundleFile ?? throw new InvalidOperationException("Document is not open.");
-        var entries = bundle.file.DirectoryInfo?.DirectoryInfos;
-        return entries?.Select(info => new BridgeAssetInfo(
-            info.Name,
-            0,
-            0,
-            info.Size,
-            "bundleEntry",
-            info.Name)).ToArray() ?? Array.Empty<BridgeAssetInfo>();
+        if (bundleFile is not null)
+        {
+            return Enumerable.Range(0, bundleFile.file.GetFileCount())
+                .Select(index => bundleFile.file.GetFile(index))
+                .Select(directory => new BridgeAssetInfo(
+                    directory.Name,
+                    0,
+                    0,
+                    directory.Size,
+                    "bundleEntry",
+                    directory.Name))
+                .ToArray();
+        }
+
+        return Array.Empty<BridgeAssetInfo>();
     }
 
     public void Dispose() => manager.UnloadAll();
