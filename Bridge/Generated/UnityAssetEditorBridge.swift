@@ -1,4 +1,5 @@
 import Foundation
+
 #if canImport(UnityAssetEditorBridge)
 import UnityAssetEditorBridge
 #endif
@@ -34,19 +35,12 @@ struct NativeBridgeClient {
         try execute(["operation": "listObjects", "path": path])
     }
 
-    func getFields(path: String, pathId: Int64) throws -> Data {
-        try execute(["operation": "getFields", "path": path, "pathId": pathId])
+    func getFields(path: String, pathID: Int64) throws -> Data {
+        try execute(["operation": "getFields", "path": path, "pathId": pathID])
     }
 
-    func updateField(path: String, pathId: Int64, fieldPath: String, value: String, outputPath: String) throws {
-        _ = try execute([
-            "operation": "updateField",
-            "path": path,
-            "pathId": pathId,
-            "fieldPath": fieldPath,
-            "value": value,
-            "outputPath": outputPath
-        ])
+    func updateField(path: String, pathID: Int64, fieldPath: String, value: String, outputPath: String) throws {
+        _ = try execute(["operation": "updateField", "path": path, "pathId": pathID, "fieldPath": fieldPath, "value": value, "outputPath": outputPath])
     }
 
     func writeBundle(path: String, outputPath: String) throws {
@@ -66,9 +60,7 @@ struct NativeBridgeClient {
         guard length >= 0 else { throw Error.operationFailed("The native bridge failed with code \(length).") }
         guard Int(length) < output.count else { throw Error.outputTooSmall }
         let response = Data(output.prefix(Int(length)))
-        guard let object = try? JSONSerialization.jsonObject(with: response) as? [String: Any] else {
-            throw Error.invalidResponse
-        }
+        guard let object = try? JSONSerialization.jsonObject(with: response) as? [String: Any] else { throw Error.invalidResponse }
         if let message = object["error"] as? String { throw Error.operationFailed(message) }
         return response
         #else
