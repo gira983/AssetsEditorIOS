@@ -18,25 +18,24 @@ public static unsafe class NativeExports
             if (request is null)
                 return -1;
 
-            var json = BridgeApi.Execute(request);
-            var bytes = Encoding.UTF8.GetBytes(json);
-            if (bytes.Length + 1 > outputCapacity)
-                return -3;
-
-            bytes.CopyTo(new Span<byte>(outputUtf8, outputCapacity));
-            outputUtf8[bytes.Length] = 0;
-            return bytes.Length;
+            var response = BridgeApi.Execute(request);
+            return WriteUtf8(response, outputUtf8, outputCapacity);
         }
         catch (Exception exception)
         {
-            var bytes = Encoding.UTF8.GetBytes(BridgeApi.Error(exception.Message));
-            if (bytes.Length + 1 > outputCapacity)
-                return -2;
-
-            bytes.CopyTo(new Span<byte>(outputUtf8, outputCapacity));
-            outputUtf8[bytes.Length] = 0;
-            return bytes.Length;
+            return WriteUtf8(BridgeApi.Error(exception.Message), outputUtf8, outputCapacity);
         }
+    }
+
+    private static int WriteUtf8(string value, byte* output, int capacity)
+    {
+        var bytes = Encoding.UTF8.GetBytes(value);
+        if (bytes.Length + 1 > capacity)
+            return -3;
+
+        bytes.CopyTo(new Span<byte>(output, capacity));
+        output[bytes.Length] = 0;
+        return bytes.Length;
     }
 
     private static string? ReadUtf8(byte* value)
@@ -45,7 +44,7 @@ public static unsafe class NativeExports
         while (value[length] != 0)
         {
             length++;
-            if (length > 32_768)
+            if (length > 1_048_576)
                 return null;
         }
 
