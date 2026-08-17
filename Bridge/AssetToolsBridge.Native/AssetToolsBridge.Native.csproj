@@ -10,7 +10,6 @@
     <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
     <PublishAot>true</PublishAot>
     <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
     <StripSymbols>false</StripSymbols>
   </PropertyGroup>
   <ItemGroup>
