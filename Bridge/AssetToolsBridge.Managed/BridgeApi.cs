@@ -118,7 +118,10 @@ public sealed class BridgeDocument : IDisposable
         using var stream = File.OpenRead(path);
         Span<byte> magic = stackalloc byte[7];
         var read = stream.Read(magic);
-        return read == 7 && (magic.SequenceEqual("UnityFS"u8) || magic.SequenceEqual("UnityRaw"u8) || magic.SequenceEqual("UnityWeb"u8));
+        return read == 7 &&
+            (magic.SequenceEqual("UnityFS"u8) ||
+             magic.SequenceEqual("UnityRaw"u8) ||
+             magic.SequenceEqual("UnityWeb"u8));
     }
 }
 
