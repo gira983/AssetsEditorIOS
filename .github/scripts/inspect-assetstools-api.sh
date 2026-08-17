@@ -1,31 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo="https://raw.githubusercontent.com/nesrak1/AssetsTools.NET/main"
+repo="https://github.com/nesrak1/AssetsTools.NET.git"
 work_dir="${RUNNER_TEMP:-/tmp}/assetstools-api"
-mkdir -p "$work_dir"
+rm -rf "$work_dir"
+git clone --depth 1 --quiet "$repo" "$work_dir"
 
-for path in \
-  AssetTools.NET/Extra/AssetsManager/AssetsManager.cs \
-  AssetTools.NET/Extra/AssetsManager/AssetsManager.Assets.cs \
-  AssetTools.NET/Extra/AssetsManager/AssetsManager.Bundle.cs \
-  AssetTools.NET/Extra/AssetsManager/AssetsManager.Deserialization.cs \
-  AssetTools.NET/Standard/AssetsFileFormat/AssetsFile.cs \
-  AssetTools.NET/Standard/AssetsFileFormat/AssetFileInfo.cs \
-  AssetTools.NET/Standard/AssetTypeClass/AssetTypeValueField.cs \
-  AssetTools.NET/Standard/AssetsBundleFileFormat/AssetBundleFile.cs \
-  AssetTools.NET/Standard/AssetsBundleFileFormat/AssetBundleDirectoryInfo.cs
- do
-  curl --fail --silent --show-error "$repo/$path" -o "$work_dir/$(basename "$path")"
-done
-
-grep -q 'LoadAssetsFile(string path' "$work_dir/AssetsManager.Assets.cs"
-grep -q 'LoadBundleFile(string path' "$work_dir/AssetsManager.Bundle.cs"
-grep -q 'GetBaseField(AssetsFileInstance inst, AssetFileInfo info' "$work_dir/AssetsManager.Deserialization.cs"
-grep -q 'WriteToByteArray' "$work_dir/AssetTypeValueField.cs"
-grep -q 'SetNewData(byte\[\])' "$work_dir/AssetFileInfo.cs" || grep -q 'SetNewData(byte\[\] newBytes)' "$work_dir/AssetFileInfo.cs"
-grep -q 'public void Write(AssetsFileWriter writer' "$work_dir/AssetsFile.cs"
-grep -q 'public void Write(AssetsFileWriter writer' "$work_dir/AssetBundleFile.cs"
-grep -q 'SetNewData(byte\[\] newBytes)' "$work_dir/AssetBundleDirectoryInfo.cs"
+assets_dir="$work_dir/AssetTools.NET"
+grep -q 'LoadAssetsFile(string path' "$assets_dir/Extra/AssetsManager/AssetsManager.Assets.cs"
+grep -q 'LoadBundleFile(string path' "$assets_dir/Extra/AssetsManager/AssetsManager.Bundle.cs"
+grep -q 'GetBaseField(AssetsFileInstance inst, AssetFileInfo info' "$assets_dir/Extra/AssetsManager/AssetsManager.Deserialization.cs"
+grep -q 'WriteToByteArray' "$assets_dir/Standard/AssetTypeClass/AssetTypeValueField.cs"
+grep -q 'SetNewData(byte\[\])' "$assets_dir/Standard/AssetsFileFormat/AssetFileInfo.cs" || grep -q 'SetNewData(byte\[\] newBytes)' "$assets_dir/Standard/AssetsFileFormat/AssetFileInfo.cs"
+grep -q 'public void Write(AssetsFileWriter writer' "$assets_dir/Standard/AssetsFileFormat/AssetsFile.cs"
+grep -q 'public void Write(AssetsFileWriter writer' "$assets_dir/Standard/AssetsBundleFileFormat/AssetBundleFile.cs"
+grep -q 'SetNewData(byte\[\] newBytes)' "$assets_dir/Standard/AssetsBundleFileFormat/AssetBundleDirectoryInfo.cs"
 
 echo "AssetsTools.NET API smoke check passed"
