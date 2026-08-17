@@ -1,5 +1,6 @@
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
+using System.Globalization;
 using System.Text.Json;
 
 namespace AssetToolsBridge.Managed;
@@ -63,24 +64,17 @@ public sealed class BridgeDocument : IDisposable
     {
         if (assetsFile is not null)
         {
-            return assetsFile.file.AssetInfos.Select(info => new BridgeAssetInfo(
-                Path.GetFileName(assetsFile.path),
-                info.PathId,
-                info.GetTypeId(assetsFile.file),
-                info.ByteSize,
-                UnityTypeName(info.GetTypeId(assetsFile.file)),
-                TryReadName(info))).ToArray();
+            return assetsFile.file.AssetInfos.Select(info =>
+            {
+                var classId = info.GetTypeId(assetsFile.file);
+                return new BridgeAssetInfo(Path.GetFileName(assetsFile.path), info.PathId, classId, info.ByteSize, UnityTypeName(classId), TryReadName(info));
+            }).ToArray();
         }
 
         if (bundleFile is not null)
         {
             return bundleFile.file.BlockAndDirInfo.DirectoryInfos.Select(directory => new BridgeAssetInfo(
-                directory.Name,
-                0,
-                0,
-                directory.DecompressedSize,
-                "bundleEntry",
-                directory.Name)).ToArray();
+                directory.Name, 0, 0, directory.DecompressedSize, "bundleEntry", directory.Name)).ToArray();
         }
 
         return Array.Empty<BridgeAssetInfo>();
@@ -89,12 +83,11 @@ public sealed class BridgeDocument : IDisposable
     public BridgeResponse ReadObject(long pathId)
     {
         if (assetsFile is null) throw new InvalidOperationException("Object reads require a SerializedFile.");
-        var info = assetsFile.file.GetAssetInfo(pathId);
-        if (info is null) throw new KeyNotFoundException($"Asset path ID {pathId} was not found.");
+        var info = assetsFile.file.GetAssetInfo(pathId) ?? throw new KeyNotFoundException($"Asset path ID {pathId} was not found.");
         var field = manager.GetBaseField(assetsFile, info);
-        return new BridgeResponse(GetInfo(), new[] { new BridgeAssetInfo(
-            Path.GetFileName(assetsFile.path), info.PathId, info.GetTypeId(assetsFile.file), info.ByteSize,
-            UnityTypeName(info.GetTypeId(assetsFile.file)), field["m_Name"].IsDummy ? null : field["m_Name"].AsString) }, null);
+        var classId = info.GetTypeId(assetsFile.file);
+        var name = field["m_Name"];
+        return new BridgeResponse(GetInfo(), new[] { new BridgeAssetInfo(Path.GetFileName(assetsFile.path), info.PathId, classId, info.ByteSize, UnityTypeName(classId), name.IsDummy ? null : name.AsString) }, null);
     }
 
     public void UpdateField(long pathId, string fieldPath, string value, string outputPath)
@@ -129,31 +122,24 @@ public sealed class BridgeDocument : IDisposable
     private static void ApplyValue(AssetTypeValueField field, string text)
     {
         var value = text.Trim();
+        var culture = CultureInfo.InvariantCulture;
         switch (field.TemplateField.ValueType)
         {
-            case AssetValueType.Bool: field.AsBool = Parse(value, bool.TryParse, "bool"); break;
-            case AssetValueType.Int8: field.AsSByte = Parse(value, sbyte.TryParse, "SInt8"); break;
-            case AssetValueType.UInt8: field.AsByte = Parse(value, byte.TryParse, "UInt8"); break;
-            case AssetValueType.Int16: field.AsShort = Parse(value, short.TryParse, "SInt16"); break;
-            case AssetValueType.UInt16: field.AsUShort = Parse(value, ushort.TryParse, "UInt16"); break;
-            case AssetValueType.Int32: field.AsInt = Parse(value, int.TryParse, "SInt32"); break;
-            case AssetValueType.UInt32: field.AsUInt = Parse(value, uint.TryParse, "UInt32"); break;
-            case AssetValueType.Int64: field.AsLong = Parse(value, long.TryParse, "SInt64"); break;
-            case AssetValueType.UInt64: field.AsULong = Parse(value, ulong.TryParse, "UInt64"); break;
-            case AssetValueType.Float: field.AsFloat = Parse(value, float.TryParse, "float"); break;
-            case AssetValueType.Double: field.AsDouble = Parse(value, double.TryParse, "double"); break;
+            case AssetValueType.Bool: field.AsBool = bool.Parse(value); break;
+            case AssetValueType.Int8: field.AsSByte = sbyte.Parse(value, culture); break;
+            case AssetValueType.UInt8: field.AsByte = byte.Parse(value, culture); break;
+            case AssetValueType.Int16: field.AsShort = short.Parse(value, culture); break;
+            case AssetValueType.UInt16: field.AsUShort = ushort.Parse(value, culture); break;
+            case AssetValueType.Int32: field.AsInt = int.Parse(value, culture); break;
+            case AssetValueType.UInt32: field.AsUInt = uint.Parse(value, culture); break;
+            case AssetValueType.Int64: field.AsLong = long.Parse(value, culture); break;
+            case AssetValueType.UInt64: field.AsULong = ulong.Parse(value, culture); break;
+            case AssetValueType.Float: field.AsFloat = float.Parse(value, culture); break;
+            case AssetValueType.Double: field.AsDouble = double.Parse(value, culture); break;
             case AssetValueType.String: field.AsString = value; break;
             default: throw new NotSupportedException($"Field type '{field.TemplateField.Type}' is not editable by the bridge.");
         }
     }
-
-    private static T Parse<T>(string value, TryParse<T> parser, string type) where T : struct
-    {
-        if (!parser(value, out var result)) throw new FormatException($"'{value}' is not a valid {type}.");
-        return result;
-    }
-
-    private delegate bool TryParse<T>(string value, out T result) where T : struct;
 
     private string? TryReadName(AssetFileInfo info)
     {
@@ -193,25 +179,36 @@ public static class BridgeApi
         {
             var request = JsonSerializer.Deserialize<BridgeRequest>(requestJson, JsonOptions) ?? throw new InvalidDataException("Invalid bridge request.");
             using var document = BridgeDocument.Open(request.Path);
-            switch (request.Operation)
+            return request.Operation switch
             {
-                case "inspect": return Serialize(new BridgeResponse(document.GetInfo(), document.ListAssets(), null));
-                case "readObject": return Serialize(document.ReadObject(request.PathId ?? throw new InvalidDataException("pathId is required.")));
-                case "updateField":
-                    if (request.OutputPath is null || request.FieldPath is null || request.Value is null || request.PathId is null) throw new InvalidDataException("updateField requires outputPath, pathId, fieldPath, and value.");
-                    document.UpdateField(request.PathId.Value, request.FieldPath, request.Value, request.OutputPath);
-                    return Serialize(new BridgeResponse(document.GetInfo(), Array.Empty<BridgeAssetInfo>(), null));
-                case "writeBundle":
-                    if (request.OutputPath is null) throw new InvalidDataException("writeBundle requires outputPath.");
-                    document.WriteBundle(request.OutputPath);
-                    return Serialize(new BridgeResponse(document.GetInfo(), Array.Empty<BridgeAssetInfo>(), null));
-                default: throw new InvalidDataException($"Unknown bridge operation '{request.Operation}'.");
-            }
+                "inspect" => Serialize(new BridgeResponse(document.GetInfo(), document.ListAssets(), null)),
+                "readObject" => Serialize(document.ReadObject(request.PathId ?? throw new InvalidDataException("pathId is required."))),
+                "updateField" => ExecuteUpdate(document, request),
+                "writeBundle" => ExecuteWriteBundle(document, request),
+                _ => throw new InvalidDataException($"Unknown bridge operation '{request.Operation}'.")
+            };
         }
         catch (Exception exception)
         {
-            return Serialize(new BridgeResponse(null, Array.Empty<BridgeAssetInfo>(), exception.Message));
+            return Failure(exception.Message);
         }
+    }
+
+    public static string Failure(string message) => Serialize(new BridgeResponse(null, Array.Empty<BridgeAssetInfo>(), message));
+
+    private static string ExecuteUpdate(BridgeDocument document, BridgeRequest request)
+    {
+        if (request.OutputPath is null || request.FieldPath is null || request.Value is null || request.PathId is null)
+            throw new InvalidDataException("updateField requires outputPath, pathId, fieldPath, and value.");
+        document.UpdateField(request.PathId.Value, request.FieldPath, request.Value, request.OutputPath);
+        return Serialize(new BridgeResponse(document.GetInfo(), Array.Empty<BridgeAssetInfo>(), null));
+    }
+
+    private static string ExecuteWriteBundle(BridgeDocument document, BridgeRequest request)
+    {
+        if (request.OutputPath is null) throw new InvalidDataException("writeBundle requires outputPath.");
+        document.WriteBundle(request.OutputPath);
+        return Serialize(new BridgeResponse(document.GetInfo(), Array.Empty<BridgeAssetInfo>(), null));
     }
 
     private static string Serialize(BridgeResponse response) => JsonSerializer.Serialize(response, JsonOptions);
