@@ -51,7 +51,8 @@ public sealed class BridgeDocument : IDisposable
             return new BridgeDocumentInfo(assetsFile.path, "serializedFile", assetsFile.file.AssetInfos.Count, assetsFile.file.Metadata.UnityVersion);
 
         var bundle = bundleFile ?? throw new InvalidOperationException("Document is not open.");
-        return new BridgeDocumentInfo(bundle.path, "assetBundle", bundle.file.DirectoryInfo?.DirectoryInfos.Count ?? 0, bundle.file.Header?.UnityVersion);
+        var entries = bundle.file.DirectoryInfo?.DirectoryInfos;
+        return new BridgeDocumentInfo(bundle.path, "assetBundle", entries?.Count ?? 0, bundle.file.Header?.UnityVersion);
     }
 
     public IReadOnlyList<BridgeAssetInfo> ListAssets()
@@ -68,7 +69,8 @@ public sealed class BridgeDocument : IDisposable
         }
 
         var bundle = bundleFile ?? throw new InvalidOperationException("Document is not open.");
-        return bundle.file.DirectoryInfo?.DirectoryInfos.Select(info => new BridgeAssetInfo(
+        var entries = bundle.file.DirectoryInfo?.DirectoryInfos;
+        return entries?.Select(info => new BridgeAssetInfo(
             info.Name,
             0,
             0,
