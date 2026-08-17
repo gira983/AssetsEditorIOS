@@ -65,7 +65,7 @@ public sealed class BridgeDocument : IDisposable
                 assetsFile.path,
                 "serializedFile",
                 assetsFile.file.AssetInfos.Count,
-                header.UnityVersion);
+                assetsFile.file.Metadata.UnityVersion);
         }
 
         if (bundleFile is not null)
@@ -73,7 +73,7 @@ public sealed class BridgeDocument : IDisposable
             return new BridgeDocumentInfo(
                 bundleFile.path,
                 "assetBundle",
-                bundleFile.file.GetFileCount(),
+                bundleFile.file.BlockAndDirInfo.DirectoryInfos.Count,
                 bundleFile.file.Header?.EngineVersion);
         }
 
@@ -97,15 +97,15 @@ public sealed class BridgeDocument : IDisposable
 
         if (bundleFile is not null)
         {
-            return bundleFile.file.DirectoryInfo?.DirectoryInfos
+            return bundleFile.file.BlockAndDirInfo.DirectoryInfos
                 .Select(directory => new BridgeAssetInfo(
                     directory.Name,
                     0,
                     0,
-                    directory.Size,
+                    directory.DecompressedSize,
                     "bundleEntry",
                     directory.Name))
-                .ToArray() ?? Array.Empty<BridgeAssetInfo>();
+                .ToArray();
         }
 
         return Array.Empty<BridgeAssetInfo>();
