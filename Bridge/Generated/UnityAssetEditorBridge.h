@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-int32_t uae_bridge_inspect(const uint8_t *path_utf8, uint8_t *output_utf8, int32_t output_capacity);
+int32_t uae_bridge_execute(const uint8_t *request_utf8, uint8_t *output_utf8, int32_t output_capacity);
 
 #ifdef __cplusplus
 }
