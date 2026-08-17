@@ -97,8 +97,7 @@ public sealed class BridgeDocument : IDisposable
 
         if (bundleFile is not null)
         {
-            return Enumerable.Range(0, bundleFile.file.GetFileCount())
-                .Select(index => bundleFile.file.GetFile(index))
+            return bundleFile.file.DirectoryInfo?.DirectoryInfos
                 .Select(directory => new BridgeAssetInfo(
                     directory.Name,
                     0,
@@ -106,7 +105,7 @@ public sealed class BridgeDocument : IDisposable
                     directory.Size,
                     "bundleEntry",
                     directory.Name))
-                .ToArray();
+                .ToArray() ?? Array.Empty<BridgeAssetInfo>();
         }
 
         return Array.Empty<BridgeAssetInfo>();
