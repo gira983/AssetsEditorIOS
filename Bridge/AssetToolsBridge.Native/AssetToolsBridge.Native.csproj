@@ -8,6 +8,10 @@
     <InvariantGlobalization>true</InvariantGlobalization>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+    <PublishAot>true</PublishAot>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <StripSymbols>false</StripSymbols>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AssetToolsBridge.Managed\AssetToolsBridge.Managed.csproj" />
