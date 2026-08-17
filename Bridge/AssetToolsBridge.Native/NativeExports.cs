@@ -26,14 +26,13 @@ public static unsafe class NativeExports
         }
     }
 
-    private static int WriteUtf8(string value, byte* output, int capacity)
+    private static int WriteUtf8(string value, byte* destination, int capacity)
     {
         var bytes = Encoding.UTF8.GetBytes(value);
         if (bytes.Length + 1 > capacity)
             return -3;
-
-        bytes.CopyTo(new Span<byte>(output, capacity));
-        output[bytes.Length] = 0;
+        bytes.CopyTo(new Span<byte>(destination, capacity));
+        destination[bytes.Length] = 0;
         return bytes.Length;
     }
 
@@ -46,7 +45,6 @@ public static unsafe class NativeExports
             if (length > 1_048_576)
                 return null;
         }
-
         return Encoding.UTF8.GetString(new ReadOnlySpan<byte>(value, length));
     }
 }
