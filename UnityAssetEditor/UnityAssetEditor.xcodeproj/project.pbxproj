@@ -5,10 +5,10 @@
   objectVersion = 56;
   objects = {
     A10000000000000000000001 = { isa = PBXProject; buildConfigurationList = A10000000000000000000002; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = A10000000000000000000003; productRefGroup = A10000000000000000000004; projectDirPath = ""; projectRoot = ""; targets = (A10000000000000000000005); };
-    A10000000000000000000003 = { isa = PBXGroup; children = (A10000000000000000000014, A10000000000000000000015); sourceTree = "<group>"; };
+    A10000000000000000000003 = { isa = PBXGroup; children = (A10000000000000000000014, A10000000000000000000015, A10000000000000000000024); sourceTree = "<group>"; };
     A10000000000000000000004 = { isa = PBXGroup; children = (A10000000000000000000020); name = Products; sourceTree = "<group>"; };
     A10000000000000000000005 = { isa = PBXNativeTarget; buildConfigurationList = A10000000000000000000006; buildPhases = (A10000000000000000000007, A10000000000000000000008, A10000000000000000000009); buildRules = (); dependencies = (); name = UnityAssetEditor; productName = UnityAssetEditor; productReference = A10000000000000000000020; productType = "com.apple.product-type.application"; };
-    A10000000000000000000007 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+    A10000000000000000000007 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000019); runOnlyForDeploymentPostprocessing = 0; };
     A10000000000000000000008 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000016, A10000000000000000000017, A10000000000000000000018); runOnlyForDeploymentPostprocessing = 0; };
     A10000000000000000000009 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
     A10000000000000000000002 = { isa = XCConfigurationList; buildConfigurations = (A10000000000000000000010, A10000000000000000000011); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
@@ -17,15 +17,17 @@
     A10000000000000000000011 = { isa = XCBuildConfiguration; name = Release; buildSettings = { PRODUCT_NAME = "$(TARGET_NAME)"; } };
     A10000000000000000000012 = { isa = XCBuildConfiguration; name = Debug; buildSettings = { PRODUCT_BUNDLE_IDENTIFIER = "com.uabea.UnityAssetEditor"; SWIFT_VERSION = 5.0; IPHONEOS_DEPLOYMENT_TARGET = 16.0; TARGETED_DEVICE_FAMILY = "1,2"; SDKROOT = iphoneos; INFOPLIST_FILE = Info.plist; } };
     A10000000000000000000013 = { isa = XCBuildConfiguration; name = Release; buildSettings = { PRODUCT_BUNDLE_IDENTIFIER = "com.uabea.UnityAssetEditor"; SWIFT_VERSION = 5.0; IPHONEOS_DEPLOYMENT_TARGET = 16.0; TARGETED_DEVICE_FAMILY = "1,2"; SDKROOT = iphoneos; INFOPLIST_FILE = Info.plist; } };
-    A10000000000000000000014 = { isa = PBXGroup; children = (A10000000000000000000021); path = App; sourceTree = "<group>"; };
+    A10000000000000000000014 = { isa = PBXGroup; children = (A10000000000000000000021, A10000000000000000000022); path = App; sourceTree = "<group>"; };
     A10000000000000000000015 = { isa = PBXGroup; children = (); path = Core; sourceTree = "<group>"; };
+    A10000000000000000000024 = { isa = PBXGroup; children = (A10000000000000000000023); path = Resources; sourceTree = "<group>"; };
     A10000000000000000000016 = { isa = PBXBuildFile; fileRef = A10000000000000000000021; };
     A10000000000000000000017 = { isa = PBXBuildFile; fileRef = A10000000000000000000022; };
     A10000000000000000000018 = { isa = PBXBuildFile; fileRef = A10000000000000000000023; };
+    A10000000000000000000019 = { isa = PBXBuildFile; fileRef = A10000000000000000000023; };
     A10000000000000000000020 = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = UnityAssetEditor.app; sourceTree = BUILT_PRODUCTS_DIR; };
     A10000000000000000000021 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnityAssetEditorApp.swift; sourceTree = "<group>"; };
     A10000000000000000000022 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-    A10000000000000000000023 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Info.plist; sourceTree = "<group>"; };
+    A10000000000000000000023 = { isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
   };
   rootObject = A10000000000000000000001;
 }
