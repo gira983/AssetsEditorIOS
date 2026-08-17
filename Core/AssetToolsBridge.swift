@@ -48,7 +48,7 @@ struct NativeAssetToolsBridge: AssetToolsBridge {
         let object = try jsonObject(client.listObjects(path: url.path))
         guard let result = object["result"] as? [String: Any], let values = result["objects"] as? [[String: Any]] else { throw AssetToolsBridgeError.invalidResponse }
         return values.compactMap { value -> SerializedObjectInfo? in
-            guard let id = value["id"] as? String, let pathID = value["pathID"] as? Int64 ?? (value["pathID"] as? Int).map(Int64.init), let typeID = value["typeID"] as? Int, let byteOffset = value["byteOffset"] as? UInt64 ?? (value["byteOffset"] as? Int).map(UInt64.init), let byteSize = value["byteSize"] as? UInt64 ?? (value["byteSize"] as? Int).map(UInt64.init), let typeName = value["typeName"] as? String, let displayName = value["displayName"] as? String else { return nil }
+            guard let id = value["id"] as? String, let pathID = value["pathID"] as? Int64 ?? (value["pathID"] as? Int).map(Int64.init), let typeID = value["typeID"] as? Int32 ?? (value["typeID"] as? Int).map(Int32.init), let byteOffset = value["byteOffset"] as? UInt64 ?? (value["byteOffset"] as? Int).map(UInt64.init), let byteSize = value["byteSize"] as? UInt32 ?? (value["byteSize"] as? UInt64).map(UInt32.init) ?? (value["byteSize"] as? Int).map(UInt32.init), let typeName = value["typeName"] as? String, let displayName = value["displayName"] as? String else { return nil }
             return SerializedObjectInfo(id: id, pathID: pathID, typeID: typeID, byteOffset: byteOffset, byteSize: byteSize, typeName: typeName, displayName: displayName)
         }
     }
