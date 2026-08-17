@@ -1,6 +1,6 @@
-using System.Text;
+using System;
 
-namespace UnityAssetEditor.AssetToolsBridge.Managed;
+namespace AssetToolsBridge.Managed;
 
 internal static class Program
 {
