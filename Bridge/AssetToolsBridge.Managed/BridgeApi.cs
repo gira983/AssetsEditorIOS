@@ -62,7 +62,11 @@ public sealed class BridgeDocument : IDisposable
     {
         if (assetsFile is not null)
         {
-            return assetsFile.file.AssetInfos.Select(info => new BridgeAssetInfo(Path.GetFileName(assetsFile.path), info.PathId, info.GetTypeId(assetsFile.file), info.ByteSize, info.GetTypeId(assetsFile.file).ToString(), null)).ToArray();
+            return assetsFile.file.AssetInfos.Select(info =>
+            {
+                var classId = info.GetTypeId(assetsFile.file);
+                return new BridgeAssetInfo(Path.GetFileName(assetsFile.path), info.PathId, classId, info.ByteSize, classId.ToString(), null);
+            }).ToArray();
         }
 
         if (bundleFile is not null)
@@ -91,7 +95,7 @@ public sealed class BridgeDocument : IDisposable
         var file = RequireAssetsFile();
         var info = file.file.GetAssetInfo(pathId) ?? throw new KeyNotFoundException($"Asset path ID {pathId} was not found.");
         var field = manager.GetBaseField(file, info);
-        _ = field.IsDummy ? throw new InvalidDataException("AssetsTools.NET returned a dummy base field.") : field;
+        if (field.IsDummy) throw new InvalidDataException("AssetsTools.NET returned a dummy base field.");
     }
 
     public void WriteBundle(string outputPath)
