@@ -1,83 +1,114 @@
-using System.Text.Json;
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
+using System.Text.Json;
 
-namespace UnityAssetEditor.AssetToolsBridge.Managed;
+namespace AssetToolsBridge.Managed;
 
-public static class BridgeApi
-{
-    public static string InspectJson(string path)
-    {
-        using var document = BridgeDocument.Open(path);
-        return JsonSerializer.Serialize(document.Describe());
-    }
-}
+public sealed record BridgeAssetInfo(
+    string FileName,
+    long PathId,
+    int ClassId,
+    long ByteSize,
+    string AssetType,
+    string? Name);
 
-internal sealed class BridgeDocument : IDisposable
+public sealed record BridgeDocumentInfo(
+    string Path,
+    string Kind,
+    int AssetCount,
+    string? UnityVersion);
+
+public sealed class BridgeDocument : IDisposable
 {
     private readonly AssetsManager manager;
-    private readonly AssetsFileInstance? assets;
-    private readonly BundleFileInstance? bundle;
+    private readonly AssetsFileInstance? assetsFile;
+    private readonly BundleFileInstance? bundleFile;
 
-    private BridgeDocument(AssetsManager manager, AssetsFileInstance? assets, BundleFileInstance? bundle)
+    private BridgeDocument(AssetsManager manager, AssetsFileInstance? assetsFile, BundleFileInstance? bundleFile)
     {
         this.manager = manager;
-        this.assets = assets;
-        this.bundle = bundle;
+        this.assetsFile = assetsFile;
+        this.bundleFile = bundleFile;
     }
 
     public static BridgeDocument Open(string path)
     {
         var manager = new AssetsManager();
-        try
+        if (IsBundle(path))
         {
-            if (IsBundle(path))
-                return new BridgeDocument(manager, null, manager.LoadBundleFile(path, true));
+            var bundle = manager.LoadBundleFile(path, true);
+            if (bundle is null)
+                throw new InvalidDataException("AssetsTools.NET could not load the bundle.");
+            return new BridgeDocument(manager, null, bundle);
+        }
 
-            return new BridgeDocument(manager, manager.LoadAssetsFile(path, false), null);
-        }
-        catch
-        {
-            manager.UnloadAll();
-            throw;
-        }
+        var assets = manager.LoadAssetsFile(path, true);
+        if (assets is null)
+            throw new InvalidDataException("AssetsTools.NET could not load the serialized file.");
+        return new BridgeDocument(manager, assets, null);
     }
 
-    public object Describe()
+    public BridgeDocumentInfo GetInfo()
     {
-        if (assets is not null)
+        if (assetsFile is not null)
         {
-            return new
-            {
-                format = "serialized-file",
-                path = assets.path,
-                unityVersion = assets.file.Metadata.UnityVersion,
-                assetCount = assets.file.AssetInfos.Count
-            };
+            var file = assetsFile.file;
+            return new BridgeDocumentInfo(
+                assetsFile.path,
+                "serialized-file",
+                file.AssetInfos.Count,
+                file.Metadata.UnityVersion);
         }
 
-        if (bundle is not null)
+        if (bundleFile is not null)
         {
-            return new
-            {
-                format = "asset-bundle",
-                path = bundle.path,
-                entryCount = bundle.file.BlockAndDirInfo.DirectoryInfos.Count,
-                entries = bundle.file.GetAllFileNames()
-            };
+            return new BridgeDocumentInfo(
+                bundleFile.path,
+                "asset-bundle",
+                bundleFile.file.DirectoryInfo.Count,
+                null);
         }
 
-        throw new InvalidOperationException("No document loaded");
+        throw new InvalidOperationException("No document is open.");
     }
 
-    public void Dispose() => manager.UnloadAll();
+    public IReadOnlyList<BridgeAssetInfo> ListAssets()
+    {
+        if (assetsFile is null)
+            throw new NotSupportedException("Asset listing inside bundles is not exposed by this bridge yet.");
+
+        return assetsFile.file.AssetInfos.Select(info => new BridgeAssetInfo(
+            assetsFile.path,
+            info.PathId,
+            info.TypeId,
+            info.ByteSize,
+            info.TypeId.ToString(),
+            null)).ToArray();
+    }
+
+    public void Dispose()
+    {
+        manager.UnloadAll();
+    }
 
     private static bool IsBundle(string path)
     {
         using var stream = File.OpenRead(path);
-        Span<byte> header = stackalloc byte[7];
-        var read = stream.Read(header);
-        var text = System.Text.Encoding.ASCII.GetString(header[..read]);
-        return text is "UnityFS" or "UnityRaw" or "UnityWeb";
+        Span<byte> magic = stackalloc byte[7];
+        var read = stream.Read(magic);
+        return read == 7 && magic.SequenceEqual("UnityFS"u8);
+    }
+}
+
+public static class BridgeApi
+{
+    public static string Inspect(string path)
+    {
+        using var document = BridgeDocument.Open(path);
+        return JsonSerializer.Serialize(new
+        {
+            info = document.GetInfo(),
+            assets = document.ListAssets()
+        });
     }
 }
