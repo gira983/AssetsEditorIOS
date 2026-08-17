@@ -8,6 +8,7 @@
     <PublishAot>true</PublishAot>
     <PublishAotUsingRuntimePack>true</PublishAotUsingRuntimePack>
     <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>ios-arm64</RuntimeIdentifier>
     <InvariantGlobalization>true</InvariantGlobalization>
     <StripSymbols>false</StripSymbols>
     <PublishTrimmed>true</PublishTrimmed>
