@@ -18,12 +18,11 @@ public static unsafe class NativeExports
             if (request is null)
                 return -1;
 
-            var response = BridgeApi.Execute(request);
-            return WriteUtf8(response, outputUtf8, outputCapacity);
+            return WriteUtf8(BridgeApi.Execute(request), outputUtf8, outputCapacity);
         }
         catch (Exception exception)
         {
-            return WriteUtf8(BridgeApi.Error(exception.Message), outputUtf8, outputCapacity);
+            return WriteUtf8(BridgeApi.Failure(exception.Message), outputUtf8, outputCapacity);
         }
     }
 
