@@ -42,7 +42,7 @@ jobs:
           test -n "$sdk_version"
           printf '{"sdk":{"version":"%s","rollForward":"latestPatch","allowPrerelease":false}}\n' "$sdk_version" > global.json
           dotnet --version
-          dotnet workload restore Bridge/AssetToolsBridge.Native/AssetToolsBridge.Native.csproj
+          dotnet workload install mobile-librarybuilder
 
       - name: Verify upstream AssetsTools.NET APIs
         run: .github/scripts/inspect-assetstools-api.sh
