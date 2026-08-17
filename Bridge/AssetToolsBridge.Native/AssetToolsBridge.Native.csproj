@@ -4,13 +4,14 @@
     <OutputType>Library</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PublishTrimmed>false</PublishTrimmed>
-    <InvariantGlobalization>true</InvariantGlobalization>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
     <PublishAot>true</PublishAot>
     <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>ios-arm64</RuntimeIdentifier>
+    <InvariantGlobalization>true</InvariantGlobalization>
     <StripSymbols>false</StripSymbols>
+    <PublishTrimmed>true</PublishTrimmed>
+    <IsTrimmable>false</IsTrimmable>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AssetToolsBridge.Managed\AssetToolsBridge.Managed.csproj" />
