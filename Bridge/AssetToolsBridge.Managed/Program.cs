@@ -32,7 +32,7 @@ internal static class Program
         if (args.Length != 2)
             return Fail(InvalidArguments, "usage: inspect <path>");
 
-        Console.Out.Write(BridgeApi.InspectJson(args[1]));
+        Console.Out.Write(BridgeApi.Inspect(args[1]));
         return Success;
     }
 
