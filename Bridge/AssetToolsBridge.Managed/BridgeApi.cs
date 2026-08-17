@@ -54,7 +54,7 @@ public sealed class BridgeDocument : IDisposable
         }
 
         if (bundleFile is not null)
-            return new BridgeDocumentInfo(bundleFile.path, "asset-bundle", bundleFile.file.DirectoryInfo.Count, null);
+            return new BridgeDocumentInfo(bundleFile.path, "asset-bundle", bundleFile.file.BlockAndDirInfo.DirectoryInfos.Count, bundleFile.file.Header?.EngineVersion);
 
         throw new InvalidOperationException("No document is open.");
     }
@@ -80,7 +80,7 @@ public sealed class BridgeDocument : IDisposable
         using var stream = File.OpenRead(path);
         Span<byte> magic = stackalloc byte[7];
         var read = stream.Read(magic);
-        return read == 7 && magic.SequenceEqual("UnityFS"u8);
+        return read == 7 && (magic.SequenceEqual("UnityFS"u8) || magic.SequenceEqual("UnityRaw"u8) || magic.SequenceEqual("UnityWeb"u8));
     }
 }
 
