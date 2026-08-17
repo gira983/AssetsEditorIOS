@@ -4,12 +4,10 @@
     <OutputType>Exe</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <InvariantGlobalization>true</InvariantGlobalization>
     <PublishTrimmed>false</PublishTrimmed>
-    <DebugType>none</DebugType>
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="AssetsTools.NET" Version="3.0.5" />
-    <PackageReference Include="AssetsTools.NET.Extra" Version="3.0.5" />
+    <PackageReference Include="AssetsTools.NET" Version="3.0.0" />
   </ItemGroup>
 </Project>
