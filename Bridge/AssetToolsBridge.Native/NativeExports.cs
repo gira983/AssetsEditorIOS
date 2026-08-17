@@ -1,29 +1,30 @@
 using System.Runtime.InteropServices;
 using System.Text;
-using UnityAssetEditor.AssetToolsBridge.Managed;
+using AssetToolsBridge.Managed;
 
-namespace UnityAssetEditor.AssetToolsBridge.Native;
+namespace AssetToolsBridge.Native;
 
 public static unsafe class NativeExports
 {
     [UnmanagedCallersOnly(EntryPoint = "uae_bridge_inspect")]
-    public static int Inspect(byte* pathUtf8, byte* outputBuffer, int outputCapacity)
+    public static int Inspect(byte* pathUtf8, byte* outputUtf8, int outputCapacity)
     {
-        if (pathUtf8 is null || outputBuffer is null || outputCapacity <= 0)
-            return -1;
-
-        var path = ReadUtf8(pathUtf8);
-        if (path is null)
+        if (pathUtf8 == null || outputUtf8 == null || outputCapacity <= 0)
             return -1;
 
         try
         {
-            var json = BridgeApi.InspectJson(path);
+            var path = ReadUtf8(pathUtf8);
+            if (path is null)
+                return -1;
+
+            var json = BridgeApi.Inspect(path);
             var bytes = Encoding.UTF8.GetBytes(json);
-            if (bytes.Length > outputCapacity)
+            if (bytes.Length + 1 > outputCapacity)
                 return -3;
 
-            Marshal.Copy(bytes, 0, (nint)outputBuffer, bytes.Length);
+            bytes.CopyTo(new Span<byte>(outputUtf8, outputCapacity));
+            outputUtf8[bytes.Length] = 0;
             return bytes.Length;
         }
         catch
@@ -42,6 +43,6 @@ public static unsafe class NativeExports
                 return null;
         }
 
-        return Encoding.UTF8.GetString(value, length);
+        return Encoding.UTF8.GetString(new ReadOnlySpan<byte>(value, length));
     }
 }
