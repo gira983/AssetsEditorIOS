@@ -75,6 +75,7 @@ jobs:
           metadata += struct.pack(">I", 0)
           metadata += struct.pack(">I", 0)
           metadata += struct.pack(">I", 0)
+          metadata += struct.pack(">I", 0)
           metadata += b"\0"
           header_size = 48
           data_offset = header_size + len(metadata)
