@@ -1,6 +1,4 @@
-using System;
-
-namespace AssetToolsBridge.Managed;
+using AssetToolsBridge.Managed;
 
 internal static class Program
 {
@@ -11,19 +9,20 @@ internal static class Program
     private static int Main(string[] args)
     {
         if (args.Length == 0)
-            return Fail(InvalidArguments, "usage: inspect <path>");
+            return Fail(InvalidArguments, "usage: inspect <path> | execute <request-json>");
 
         try
         {
             return args[0] switch
             {
                 "inspect" => Inspect(args),
+                "execute" => Execute(args),
                 _ => Fail(InvalidArguments, $"unknown command: {args[0]}")
             };
         }
         catch (Exception exception)
         {
-            return Fail(OperationFailed, exception.Message);
+            return Fail(OperationFailed, exception.ToString());
         }
     }
 
@@ -33,6 +32,15 @@ internal static class Program
             return Fail(InvalidArguments, "usage: inspect <path>");
 
         Console.Out.Write(BridgeApi.Inspect(args[1]));
+        return Success;
+    }
+
+    private static int Execute(string[] args)
+    {
+        if (args.Length != 2)
+            return Fail(InvalidArguments, "usage: execute <request-json>");
+
+        Console.Out.Write(BridgeApi.Execute(args[1]));
         return Success;
     }
 
