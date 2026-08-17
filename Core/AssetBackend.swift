@@ -57,7 +57,7 @@ final class NativeSerializedFileBackend: AssetBackend {
         guard let openedURL else { throw SerializedFileError.notOpen }
         guard let session else {
             let info = try bridge.inspect(at: openedURL)
-            return SerializedFileInfo(fileName: openedURL.lastPathComponent, fileSize: (try? Data(contentsOf: openedURL).count) ?? 0, version: 0, unityVersion: info.unityVersion ?? "", objectCount: info.assetCount)
+            return SerializedFileInfo(formatVersion: 0, fileSize: UInt64((try? Data(contentsOf: openedURL).count) ?? 0), metadataSize: 0, dataOffset: 0, unityVersion: info.unityVersion ?? "", targetPlatform: 0, objectCount: info.assetCount, typeCount: 0, externalCount: 0, isBigEndian: false)
         }
         return session.info
     }
