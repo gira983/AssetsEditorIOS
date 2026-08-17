@@ -93,9 +93,11 @@ jobs:
           python3 - "$RUNNER_TEMP/bridge-inspect.json" <<'PYTHON'
           import json, sys
           inspect = json.load(open(sys.argv[1]))
-          assert inspect["kind"] == "serializedFile"
-          assert inspect["assetCount"] == 0
-          assert inspect["unityVersion"] == "2021.3.0f1"
+          info = inspect["info"]
+          assert info["kind"] == "serializedFile"
+          assert info["assetCount"] == 0
+          assert info["unityVersion"] == "2021.3.0f1"
+          assert inspect["assets"] == []
           PYTHON
 
       - name: Show toolchain
