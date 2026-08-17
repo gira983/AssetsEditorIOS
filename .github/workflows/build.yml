@@ -226,6 +226,7 @@ jobs:
 
       - name: Add TrollStore-compatible ad hoc signature
         run: |
+          set -euo pipefail
           APP_PATH="$RUNNER_TEMP/UnityAssetEditor.xcarchive/Products/Applications/UnityAssetEditor.app"
           ENTITLEMENTS="$RUNNER_TEMP/empty.entitlements"
           cat > "$ENTITLEMENTS" <<'PLIST'
@@ -238,16 +239,30 @@ jobs:
           </dict>
           </plist>
           PLIST
-          find "$APP_PATH/Frameworks" -type f -perm -111 -exec /usr/bin/codesign --force --sign - --timestamp=none {} \; || true
-          /usr/bin/codesign --force --deep --sign - --timestamp=none --entitlements "$ENTITLEMENTS" "$APP_PATH"
-          /usr/bin/codesign --verify --deep --verbose=4 "$APP_PATH"
+
+          framework_binary="$APP_PATH/Frameworks/UnityAssetEditorBridge.framework/UnityAssetEditorBridge"
+          test -f "$framework_binary"
+          chmod 755 "$framework_binary"
+          /usr/bin/codesign --force --sign - --timestamp=none --entitlements "$ENTITLEMENTS" "$framework_binary"
+          /usr/bin/codesign --verify --strict --verbose=4 "$framework_binary"
+
+          /usr/bin/codesign --force --sign - --timestamp=none --entitlements "$ENTITLEMENTS" "$APP_PATH"
+          /usr/bin/codesign --verify --strict --deep --verbose=4 "$APP_PATH"
+          /usr/bin/codesign --display --verbose=4 "$framework_binary"
           /usr/bin/codesign --display --verbose=4 "$APP_PATH"
 
       - name: Package IPA
         run: |
+          set -euo pipefail
+          APP_PATH="$RUNNER_TEMP/UnityAssetEditor.xcarchive/Products/Applications/UnityAssetEditor.app"
+          framework_binary="$APP_PATH/Frameworks/UnityAssetEditorBridge.framework/UnityAssetEditorBridge"
+          test -x "$APP_PATH/UnityAssetEditor"
+          test -x "$framework_binary"
+          /usr/bin/codesign --verify --strict --deep "$APP_PATH"
           mkdir -p "$RUNNER_TEMP/ipa/Payload"
-          cp -R "$RUNNER_TEMP/UnityAssetEditor.xcarchive/Products/Applications/UnityAssetEditor.app" "$RUNNER_TEMP/ipa/Payload/"
+          cp -R "$APP_PATH" "$RUNNER_TEMP/ipa/Payload/"
           /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/ipa/Payload" "$RUNNER_TEMP/UnityAssetEditor.ipa"
+          unzip -Z1 "$RUNNER_TEMP/UnityAssetEditor.ipa" | grep -q 'Payload/UnityAssetEditor.app/Frameworks/UnityAssetEditorBridge.framework/UnityAssetEditorBridge'
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
