@@ -130,6 +130,8 @@ public static class BridgeApi
     public static string Inspect(string path)
     {
         using var document = BridgeDocument.Open(path);
-        return JsonSerializer.Serialize(new { info = document.GetInfo(), assets = document.ListAssets() });
+        return JsonSerializer.Serialize(
+            new { info = document.GetInfo(), assets = document.ListAssets() },
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
     }
 }
