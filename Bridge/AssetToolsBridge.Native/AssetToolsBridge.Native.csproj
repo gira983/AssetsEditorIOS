@@ -4,13 +4,14 @@
     <OutputType>Library</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PublishAot>true</PublishAot>
+    <PublishTrimmed>true</PublishTrimmed>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <SelfContained>true</SelfContained>
-    <IsAotCompatible>true</IsAotCompatible>
-    <StripSymbols>true</StripSymbols>
-    <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <EnableDynamicLoading>false</EnableDynamicLoading>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>ios-arm64</RuntimeIdentifier>
+    <NativeLib>Shared</NativeLib>
+    <StripSymbols>true</StripSymbols>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AssetToolsBridge.Managed\AssetToolsBridge.Managed.csproj" />
