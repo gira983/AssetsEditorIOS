@@ -6,19 +6,19 @@ namespace AssetToolsBridge.Native;
 
 public static unsafe class NativeExports
 {
-    [UnmanagedCallersOnly(EntryPoint = "uae_bridge_inspect")]
-    public static int Inspect(byte* pathUtf8, byte* outputUtf8, int outputCapacity)
+    [UnmanagedCallersOnly(EntryPoint = "uae_bridge_execute")]
+    public static int Execute(byte* requestUtf8, byte* outputUtf8, int outputCapacity)
     {
-        if (pathUtf8 == null || outputUtf8 == null || outputCapacity <= 0)
+        if (requestUtf8 == null || outputUtf8 == null || outputCapacity <= 0)
             return -1;
 
         try
         {
-            var path = ReadUtf8(pathUtf8);
-            if (path is null)
+            var request = ReadUtf8(requestUtf8);
+            if (request is null)
                 return -1;
 
-            var json = BridgeApi.Inspect(path);
+            var json = BridgeApi.Execute(request);
             var bytes = Encoding.UTF8.GetBytes(json);
             if (bytes.Length + 1 > outputCapacity)
                 return -3;
@@ -27,9 +27,15 @@ public static unsafe class NativeExports
             outputUtf8[bytes.Length] = 0;
             return bytes.Length;
         }
-        catch
+        catch (Exception exception)
         {
-            return -2;
+            var bytes = Encoding.UTF8.GetBytes(BridgeApi.Error(exception.Message));
+            if (bytes.Length + 1 > outputCapacity)
+                return -2;
+
+            bytes.CopyTo(new Span<byte>(outputUtf8, outputCapacity));
+            outputUtf8[bytes.Length] = 0;
+            return bytes.Length;
         }
     }
 
