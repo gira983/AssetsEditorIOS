@@ -39,14 +39,10 @@ public sealed class BridgeDocument : IDisposable
             if (IsBundle(path))
             {
                 var bundle = manager.LoadBundleFile(path, true);
-                if (bundle is null)
-                    throw new InvalidDataException("AssetsTools.NET could not load the bundle.");
                 return new BridgeDocument(manager, null, bundle);
             }
 
             var assets = manager.LoadAssetsFile(path, false);
-            if (assets is null)
-                throw new InvalidDataException("AssetsTools.NET could not load the serialized file.");
             return new BridgeDocument(manager, assets, null);
         }
         catch
@@ -65,7 +61,7 @@ public sealed class BridgeDocument : IDisposable
                 assetsFile.path,
                 "serializedFile",
                 assetsFile.file.AssetInfos.Count,
-                header.UnityVersion);
+                assetsFile.file.Metadata.UnityVersion);
         }
 
         if (bundleFile is not null)
@@ -73,8 +69,8 @@ public sealed class BridgeDocument : IDisposable
             return new BridgeDocumentInfo(
                 bundleFile.path,
                 "assetBundle",
-                bundleFile.file.GetFileCount(),
-                bundleFile.file.Header?.UnityVersion);
+                bundleFile.file.BlockAndDirInfo.DirectoryInfos.Count,
+                bundleFile.file.Header.UnityVersion);
         }
 
         throw new InvalidOperationException("The document has no loaded file.");
@@ -97,15 +93,15 @@ public sealed class BridgeDocument : IDisposable
 
         if (bundleFile is not null)
         {
-            return bundleFile.file.DirectoryInfo?.DirectoryInfos
+            return bundleFile.file.BlockAndDirInfo.DirectoryInfos
                 .Select(directory => new BridgeAssetInfo(
                     directory.Name,
                     0,
                     0,
-                    directory.Size,
+                    directory.DecompressedSize,
                     "bundleEntry",
                     directory.Name))
-                .ToArray() ?? Array.Empty<BridgeAssetInfo>();
+                .ToArray();
         }
 
         return Array.Empty<BridgeAssetInfo>();
