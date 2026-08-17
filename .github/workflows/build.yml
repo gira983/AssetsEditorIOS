@@ -82,9 +82,9 @@ jobs:
           data = bytearray(header_size)
           struct.pack_into(">I", data, 8, 22)
           data[16] = 0
-          struct.pack_into(">I", data, 24, len(metadata))
-          struct.pack_into(">q", data, 28, file_size)
-          struct.pack_into(">q", data, 36, data_offset)
+          struct.pack_into(">I", data, 20, len(metadata))
+          struct.pack_into(">q", data, 24, file_size)
+          struct.pack_into(">q", data, 32, data_offset)
           data += metadata
           open(path, "wb").write(data)
           PYTHON
