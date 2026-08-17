@@ -18,6 +18,22 @@ public sealed record BridgeDocumentInfo(
     int AssetCount,
     string? UnityVersion);
 
+public sealed record BridgeObjectInfo(
+    string FileName,
+    long PathId,
+    int ClassId,
+    long ByteSize,
+    string AssetType,
+    string? Name);
+
+public sealed record BridgeFieldInfo(
+    string Path,
+    string Name,
+    string Type,
+    string Value,
+    int Depth,
+    bool Editable);
+
 public sealed class BridgeDocument : IDisposable
 {
     private readonly AssetsManager manager;
@@ -38,15 +54,11 @@ public sealed class BridgeDocument : IDisposable
         {
             if (IsBundle(path))
             {
-                var bundle = manager.LoadBundleFile(path, true);
-                if (bundle is null)
-                    throw new InvalidDataException("AssetsTools.NET could not load the bundle.");
+                var bundle = manager.LoadBundleFile(path, true) ?? throw new InvalidDataException("AssetsTools.NET could not load the bundle.");
                 return new BridgeDocument(manager, null, bundle);
             }
 
-            var assets = manager.LoadAssetsFile(path, false);
-            if (assets is null)
-                throw new InvalidDataException("AssetsTools.NET could not load the serialized file.");
+            var assets = manager.LoadAssetsFile(path, false) ?? throw new InvalidDataException("AssetsTools.NET could not load the serialized file.");
             return new BridgeDocument(manager, assets, null);
         }
         catch
@@ -87,6 +99,7 @@ public sealed class BridgeDocument : IDisposable
                 .Select(info => new BridgeAssetInfo(
                     Path.GetFileName(assetsFile.path),
                     info.PathId,
+                    info.GetAbsoluteByteOffset(assetsFile.file.Header),
                     info.ByteSize,
                     info.GetTypeId(assetsFile.file),
                     info.GetTypeId(assetsFile.file).ToString(),
@@ -100,8 +113,8 @@ public sealed class BridgeDocument : IDisposable
                 .Select(directory => new BridgeAssetInfo(
                     directory.Name,
                     0,
-                    directory.DecompressedSize,
                     0,
+                    directory.DecompressedSize,
                     "bundleEntry",
                     directory.Name))
                 .ToArray();
@@ -110,104 +123,131 @@ public sealed class BridgeDocument : IDisposable
         return Array.Empty<BridgeAssetInfo>();
     }
 
-    public string ReadObject(long pathId)
+    public IReadOnlyList<BridgeObjectInfo> ListObjects()
     {
         if (assetsFile is null)
-            throw new InvalidOperationException("Object reads require a SerializedFile.");
+            return Array.Empty<BridgeObjectInfo>();
 
-        var info = assetsFile.file.GetAssetInfo(pathId);
-        if (info is null)
-            throw new KeyNotFoundException($"Asset path ID {pathId} was not found.");
-
-        var field = manager.GetBaseField(assetsFile, info);
-        return JsonSerializer.Serialize(ToJson(field));
+        return assetsFile.file.AssetInfos
+            .Select(info => new BridgeObjectInfo(
+                Path.GetFileName(assetsFile.path),
+                info.PathId,
+                info.GetTypeId(assetsFile.file),
+                info.ByteSize,
+                info.GetTypeId(assetsFile.file).ToString(),
+                null))
+            .ToArray();
     }
 
-    public void WriteObject(long pathId, string fieldPath, JsonElement value, string outputPath)
+    public IReadOnlyList<BridgeFieldInfo> ListFields(long pathId)
     {
         if (assetsFile is null)
-            throw new InvalidOperationException("Object writes require a SerializedFile.");
+            throw new InvalidOperationException("Fields are available for SerializedFiles, not bundle directory entries.");
 
-        var info = assetsFile.file.GetAssetInfo(pathId);
-        if (info is null)
-            throw new KeyNotFoundException($"Asset path ID {pathId} was not found.");
+        var info = assetsFile.file.GetAssetInfo(pathId) ?? throw new InvalidDataException($"Asset with path ID {pathId} was not found.");
+        var root = manager.GetBaseField(assetsFile, info);
+        var fields = new List<BridgeFieldInfo>();
+        Flatten(root, root.FieldName, 0, fields);
+        return fields;
+    }
 
-        var field = manager.GetBaseField(assetsFile, info);
-        var target = FindField(field, fieldPath);
-        SetFieldValue(target, value);
-        info.SetNewData(field);
+    public void UpdateField(long pathId, string fieldPath, string value)
+    {
+        if (assetsFile is null)
+            throw new InvalidOperationException("Fields are available for SerializedFiles, not bundle directory entries.");
 
-        using var writer = new AssetsFileWriter(outputPath);
-        assetsFile.file.Write(writer);
+        var info = assetsFile.file.GetAssetInfo(pathId) ?? throw new InvalidDataException($"Asset with path ID {pathId} was not found.");
+        var root = manager.GetBaseField(assetsFile, info);
+        var field = root[fieldPath] ?? throw new InvalidDataException($"Field {fieldPath} was not found.");
+        if (field.IsDummy)
+            throw new InvalidDataException($"Field {fieldPath} was not found.");
+
+        SetValue(field, value);
+        info.SetNewData(root.WriteToByteArray(assetsFile.file.Header.EndianType == 1));
+    }
+
+    public void Write(string outputPath)
+    {
+        if (assetsFile is not null)
+        {
+            using var writer = new AssetsFileWriter(outputPath);
+            assetsFile.file.Write(writer);
+            return;
+        }
+
+        if (bundleFile is not null)
+        {
+            using var writer = new AssetsFileWriter(outputPath);
+            bundleFile.file.Write(writer);
+            return;
+        }
+
+        throw new InvalidOperationException("The document has no loaded file.");
     }
 
     public void Dispose() => manager.UnloadAll();
 
-    private static object ToJson(AssetTypeValueField field)
+    private static void Flatten(AssetTypeValueField field, string path, int depth, ICollection<BridgeFieldInfo> result)
     {
-        if (field.Children.Count == 0)
-            return field.AsString;
+        if (result.Count >= 10_000)
+            return;
 
-        var result = new Dictionary<string, object?>();
-        foreach (var child in field.Children)
-            result[child.FieldName] = ToJson(child);
-        return result;
-    }
-
-    private static AssetTypeValueField FindField(AssetTypeValueField root, string path)
-    {
-        var current = root;
-        foreach (var segment in path.Split('.', StringSplitOptions.RemoveEmptyEntries))
+        var type = field.TypeName;
+        var editable = field.Children.Count == 0 && field.Value is not null;
+        result.Add(new BridgeFieldInfo(path, field.FieldName, type, ValueAsString(field), depth, editable));
+        for (var index = 0; index < field.Children.Count; index++)
         {
-            current = current[segment];
-            if (current.IsDummy)
-                throw new KeyNotFoundException($"Field {path} was not found.");
+            var child = field.Children[index];
+            var childPath = $"{path}.{child.FieldName}";
+            Flatten(child, childPath, depth + 1, result);
         }
-        return current;
     }
 
-    private static void SetFieldValue(AssetTypeValueField field, JsonElement value)
+    private static string ValueAsString(AssetTypeValueField field)
     {
-        switch (field.TemplateField.ValueType)
+        if (field.Value is null)
+            return string.Empty;
+
+        return field.TemplateField.ValueType switch
         {
-            case AssetValueType.String:
-                field.AsString = value.GetString() ?? string.Empty;
-                return;
+            AssetValueType.Bool => field.AsBool.ToString().ToLowerInvariant(),
+            AssetValueType.Int8 => field.AsSByte.ToString(),
+            AssetValueType.UInt8 => field.AsByte.ToString(),
+            AssetValueType.Int16 => field.AsShort.ToString(),
+            AssetValueType.UInt16 => field.AsUShort.ToString(),
+            AssetValueType.Int32 => field.AsInt.ToString(),
+            AssetValueType.UInt32 => field.AsUInt.ToString(),
+            AssetValueType.Int64 => field.AsLong.ToString(),
+            AssetValueType.UInt64 => field.AsULong.ToString(),
+            AssetValueType.Float => field.AsFloat.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            AssetValueType.Double => field.AsDouble.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            AssetValueType.String => field.AsString,
+            _ => string.Empty
+        };
+    }
+
+    private static void SetValue(AssetTypeValueField field, string value)
+    {
+        var type = field.TemplateField.ValueType;
+        var trimmed = value.Trim();
+        switch (type)
+        {
             case AssetValueType.Bool:
-                field.AsBool = value.GetBoolean();
-                return;
-            case AssetValueType.Int8:
-                field.AsSByte = value.GetSByte();
-                return;
-            case AssetValueType.UInt8:
-                field.AsByte = value.GetByte();
-                return;
-            case AssetValueType.Int16:
-                field.AsShort = value.GetInt16();
-                return;
-            case AssetValueType.UInt16:
-                field.AsUShort = value.GetUInt16();
-                return;
-            case AssetValueType.Int32:
-                field.AsInt = value.GetInt32();
-                return;
-            case AssetValueType.UInt32:
-                field.AsUInt = value.GetUInt32();
-                return;
-            case AssetValueType.Int64:
-                field.AsLong = value.GetInt64();
-                return;
-            case AssetValueType.UInt64:
-                field.AsULong = value.GetUInt64();
-                return;
-            case AssetValueType.Float:
-                field.AsFloat = value.GetSingle();
-                return;
-            case AssetValueType.Double:
-                field.AsDouble = value.GetDouble();
-                return;
-            default:
-                throw new NotSupportedException($"Field type {field.TemplateField.Type} is not supported for editing.");
+                if (!bool.TryParse(trimmed, out var boolValue) && trimmed is not ("0" or "1")) throw new FormatException("Expected true, false, 0, or 1.");
+                field.AsBool = boolValue || trimmed == "1";
+                break;
+            case AssetValueType.Int8: field.AsSByte = sbyte.Parse(trimmed, System.Globalization.CultureInfo.InvariantCulture); break;
+            case AssetValueType.UInt8: field.AsByte = byte.Parse(trimmed, System.Globalization.CultureInfo.InvariantCulture); break;
+            case AssetValueType.Int16: field.AsShort = short.Parse(trimmed, System.Globalization.CultureInfo.InvariantCulture); break;
+            case AssetValueType.UInt16: field.AsUShort = ushort.Parse(trimmed, System.Globalization.CultureInfo.InvariantCulture); break;
+            case AssetValueType.Int32: field.AsInt = int.Parse(trimmed, System.Globalization.CultureInfo.InvariantCulture); break;
+            case AssetValueType.UInt32: field.AsUInt = uint.Parse(trimmed, System.Globalization.CultureInfo.InvariantCulture); break;
+            case AssetValueType.Int64: field.AsLong = long.Parse(trimmed, System.Globalization.CultureInfo.InvariantCulture); break;
+            case AssetValueType.UInt64: field.AsULong = ulong.Parse(trimmed, System.Globalization.CultureInfo.InvariantCulture); break;
+            case AssetValueType.Float: field.AsFloat = float.Parse(trimmed, System.Globalization.CultureInfo.InvariantCulture); break;
+            case AssetValueType.Double: field.AsDouble = double.Parse(trimmed, System.Globalization.CultureInfo.InvariantCulture); break;
+            case AssetValueType.String: field.AsString = value; break;
+            default: throw new NotSupportedException($"Field type {field.TypeName} is not editable.");
         }
     }
 
@@ -217,31 +257,42 @@ public sealed class BridgeDocument : IDisposable
         Span<byte> magic = stackalloc byte[7];
         var read = stream.Read(magic);
         return read == 7 &&
-            (magic.SequenceEqual("UnityFS"u8) ||
-             magic.SequenceEqual("UnityRaw"u8) ||
-             magic.SequenceEqual("UnityWeb"u8));
+            (magic.SequenceEqual("UnityFS"u8) || magic.SequenceEqual("UnityRaw"u8) || magic.SequenceEqual("UnityWeb"u8));
     }
 }
 
 public static class BridgeApi
 {
-    public static string Execute(string request)
-    {
-        var command = JsonSerializer.Deserialize<BridgeRequest>(request)
-            ?? throw new InvalidDataException("The bridge request is empty.");
+    private sealed record BridgeRequest(string Operation, string Path, string? OutputPath, long? PathId, string? FieldPath, string? Value);
 
-        using var document = BridgeDocument.Open(command.Path);
-        return command.Operation switch
+    public static string Execute(string requestJson)
+    {
+        var request = JsonSerializer.Deserialize<BridgeRequest>(requestJson, JsonOptions) ?? throw new InvalidDataException("Invalid bridge request.");
+        using var document = BridgeDocument.Open(request.Path);
+        return request.Operation switch
         {
             "inspect" => JsonSerializer.Serialize(new { info = document.GetInfo(), assets = document.ListAssets() }, JsonOptions),
-            "readObject" => JsonSerializer.Serialize(new { objectData = JsonSerializer.Deserialize<JsonElement>(document.ReadObject(command.PathId)) }, JsonOptions),
-            _ => throw new NotSupportedException($"Unknown bridge operation: {command.Operation}")
+            "listObjects" => JsonSerializer.Serialize(document.ListObjects(), JsonOptions),
+            "listFields" when request.PathId is long pathId => JsonSerializer.Serialize(document.ListFields(pathId), JsonOptions),
+            "updateField" when request.PathId is long pathId && request.FieldPath is not null && request.Value is not null => UpdateAndWrite(document, pathId, request.FieldPath, request.Value, request.OutputPath),
+            _ => throw new InvalidDataException("Unsupported bridge operation.")
         };
     }
 
     public static string Error(string message) => JsonSerializer.Serialize(new { error = message }, JsonOptions);
 
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private static string UpdateAndWrite(BridgeDocument document, long pathId, string fieldPath, string value, string? outputPath)
+    {
+        if (string.IsNullOrWhiteSpace(outputPath))
+            throw new InvalidDataException("outputPath is required for updateField.");
+        document.UpdateField(pathId, fieldPath, value);
+        document.Write(outputPath);
+        return JsonSerializer.Serialize(new { ok = true, outputPath }, JsonOptions);
+    }
 
-    private sealed record BridgeRequest(string Operation, string Path, long PathId, string? FieldPath, JsonElement Value, string? OutputPath);
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
+    };
 }
