@@ -79,6 +79,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p Bridge/Build
+          find "$RUNNER_TEMP/AssetsToolsBridgeNative/ios-arm64" -maxdepth 1 -type f -print -exec ls -lh {} \;
+          ar -t "$RUNNER_TEMP/AssetsToolsBridgeNative/ios-arm64/AssetToolsBridge.Native.a" | head -40
           cp "$RUNNER_TEMP/AssetsToolsBridgeNative/ios-arm64/AssetToolsBridge.Native.a" Bridge/Build/libUnityAssetEditorBridge.a
           cp "$RUNNER_TEMP/AssetsToolsBridgeNative/iossimulator-arm64/AssetToolsBridge.Native.a" Bridge/Build/libUnityAssetEditorBridge-simulator.a
           nm -gU Bridge/Build/libUnityAssetEditorBridge.a > "$RUNNER_TEMP/bridge-symbols.txt"
