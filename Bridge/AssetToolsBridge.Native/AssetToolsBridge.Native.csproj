@@ -15,6 +15,8 @@
     <IsTrimmable>false</IsTrimmable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\AssetToolsBridge.Managed\AssetToolsBridge.Managed.csproj" />
+    <Compile Include="..\AssetToolsBridge.Managed\BridgeApi.cs" Link="BridgeApi.cs" />
+    <Compile Include="NativeExports.cs" />
+    <PackageReference Include="AssetsTools.NET" Version="3.0.5" />
   </ItemGroup>
 </Project>
