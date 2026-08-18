@@ -1,8 +1,7 @@
 import Foundation
 
-#if canImport(UnityAssetEditorBridge)
-import UnityAssetEditorBridge
-#endif
+@_silgen_name("uae_bridge_execute")
+private func uae_bridge_execute(_ request: UnsafePointer<UInt8>?, _ output: UnsafeMutablePointer<UInt8>?, _ outputCapacity: Int32) -> Int32
 
 struct NativeBridgeClient {
     enum Error: LocalizedError {
@@ -49,7 +48,6 @@ struct NativeBridgeClient {
 
     private func execute(_ request: [String: Any]) throws -> Data {
         let requestData = try JSONSerialization.data(withJSONObject: request, options: [])
-        #if canImport(UnityAssetEditorBridge)
         var output = [UInt8](repeating: 0, count: Int(outputCapacity))
         let requestBytes = Array(requestData) + [0]
         let length = requestBytes.withUnsafeBufferPointer { requestBuffer in
@@ -63,8 +61,5 @@ struct NativeBridgeClient {
         guard let object = try? JSONSerialization.jsonObject(with: response) as? [String: Any] else { throw Error.invalidResponse }
         if let message = object["error"] as? String { throw Error.operationFailed(message) }
         return response
-        #else
-        throw Error.unavailable
-        #endif
     }
 }

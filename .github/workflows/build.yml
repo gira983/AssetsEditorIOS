@@ -61,7 +61,7 @@ jobs:
           --configuration Release
           --runtime ios-arm64
           --self-contained true
-          -p:NativeLib=Shared
+          -p:NativeLib=Static
           -p:PublishAotUsingRuntimePack=true
           --output "$RUNNER_TEMP/AssetsToolsBridgeNative/ios-arm64"
 
@@ -71,62 +71,23 @@ jobs:
           --configuration Release
           --runtime iossimulator-arm64
           --self-contained true
-          -p:NativeLib=Shared
+          -p:NativeLib=Static
           -p:PublishAotUsingRuntimePack=true
           --output "$RUNNER_TEMP/AssetsToolsBridgeNative/iossimulator-arm64"
 
-      - name: Package native bridge XCFramework
+      - name: Package native bridge static libraries
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/bridge-frameworks/ios-arm64/UnityAssetEditorBridge.framework/Headers"
-          mkdir -p "$RUNNER_TEMP/bridge-frameworks/ios-arm64/UnityAssetEditorBridge.framework/Modules"
-          mkdir -p "$RUNNER_TEMP/bridge-frameworks/iossimulator-arm64/UnityAssetEditorBridge.framework/Headers"
-          mkdir -p "$RUNNER_TEMP/bridge-frameworks/iossimulator-arm64/UnityAssetEditorBridge.framework/Modules"
-          for platform in ios-arm64 iossimulator-arm64; do
-            framework="$RUNNER_TEMP/bridge-frameworks/$platform/UnityAssetEditorBridge.framework"
-            cp "$RUNNER_TEMP/AssetsToolsBridgeNative/$platform/AssetToolsBridge.Native.dylib" "$framework/UnityAssetEditorBridge"
-            cp Bridge/Generated/UnityAssetEditorBridge.h "$framework/Headers/"
-            cp Bridge/Generated/module.modulemap "$framework/Modules/module.modulemap"
-            cat > "$framework/Info.plist" <<'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleDevelopmentRegion</key>
-            <string>en</string>
-            <key>CFBundleExecutable</key>
-            <string>UnityAssetEditorBridge</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.gira983.UnityAssetEditorBridge</string>
-            <key>CFBundleInfoDictionaryVersion</key>
-            <string>6.0</string>
-            <key>CFBundleName</key>
-            <string>UnityAssetEditorBridge</string>
-            <key>CFBundlePackageType</key>
-            <string>FMWK</string>
-            <key>CFBundleShortVersionString</key>
-            <string>1.0</string>
-            <key>CFBundleVersion</key>
-            <string>1</string>
-          </dict>
-          </plist>
-          PLIST
-            install_name_tool -rpath @executable_path @executable_path/Frameworks "$framework/UnityAssetEditorBridge"
-            install_name_tool -id "@rpath/UnityAssetEditorBridge.framework/UnityAssetEditorBridge" "$framework/UnityAssetEditorBridge"
-          done
-          xcodebuild -create-xcframework \
-            -framework "$RUNNER_TEMP/bridge-frameworks/ios-arm64/UnityAssetEditorBridge.framework" \
-            -framework "$RUNNER_TEMP/bridge-frameworks/iossimulator-arm64/UnityAssetEditorBridge.framework" \
-            -output "$RUNNER_TEMP/UnityAssetEditorBridge.xcframework"
-          rm -rf Bridge/Build
           mkdir -p Bridge/Build
-          cp -R "$RUNNER_TEMP/UnityAssetEditorBridge.xcframework" Bridge/Build/
+          cp "$RUNNER_TEMP/AssetsToolsBridgeNative/ios-arm64/AssetToolsBridge.Native.a" Bridge/Build/libUnityAssetEditorBridge.a
+          cp "$RUNNER_TEMP/AssetsToolsBridgeNative/iossimulator-arm64/AssetToolsBridge.Native.a" Bridge/Build/libUnityAssetEditorBridge-simulator.a
+          nm -gU Bridge/Build/libUnityAssetEditorBridge.a | grep -q 'uae_bridge_execute'
 
       - name: Verify NativeAOT export
         run: |
           set -euo pipefail
-          test -f "Bridge/Build/UnityAssetEditorBridge.xcframework/ios-arm64/UnityAssetEditorBridge.framework/UnityAssetEditorBridge"
-          nm -gU "Bridge/Build/UnityAssetEditorBridge.xcframework/ios-arm64/UnityAssetEditorBridge.framework/UnityAssetEditorBridge" | grep -q 'uae_bridge_execute'
+          test -f Bridge/Build/libUnityAssetEditorBridge.a
+          nm -gU Bridge/Build/libUnityAssetEditorBridge.a | grep -q 'uae_bridge_execute'
 
       - name: Run managed bridge smoke checks
         run: |
@@ -239,40 +200,27 @@ jobs:
           </dict>
           </plist>
           PLIST
-
-          framework="$APP_PATH/Frameworks/UnityAssetEditorBridge.framework"
-          framework_binary="$framework/UnityAssetEditorBridge"
-          test -d "$framework"
-          test -f "$framework_binary"
-          chmod 755 "$framework_binary"
-
-          /usr/bin/codesign --force --sign - --timestamp=none --entitlements "$ENTITLEMENTS" "$framework"
-          /usr/bin/codesign --verify --strict --verbose=4 "$framework"
-
           /usr/bin/codesign --force --sign - --timestamp=none --entitlements "$ENTITLEMENTS" "$APP_PATH"
           /usr/bin/codesign --verify --strict --deep --verbose=4 "$APP_PATH"
-          /usr/bin/codesign --display --verbose=4 "$framework"
-          /usr/bin/codesign --display --verbose=4 "$APP_PATH"
 
       - name: Package IPA
         run: |
           set -euo pipefail
           APP_PATH="$RUNNER_TEMP/UnityAssetEditor.xcarchive/Products/Applications/UnityAssetEditor.app"
-          framework="$APP_PATH/Frameworks/UnityAssetEditorBridge.framework"
-          framework_binary="$framework/UnityAssetEditorBridge"
           test -x "$APP_PATH/UnityAssetEditor"
-          test -x "$framework_binary"
-          test -f "$framework/_CodeSignature/CodeResources"
-          /usr/bin/codesign --verify --strict "$framework"
+          test ! -d "$APP_PATH/Frameworks"
           /usr/bin/codesign --verify --strict --deep "$APP_PATH"
           mkdir -p "$RUNNER_TEMP/ipa/Payload"
           cp -R "$APP_PATH" "$RUNNER_TEMP/ipa/Payload/"
           /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/ipa/Payload" "$RUNNER_TEMP/UnityAssetEditor.ipa"
-          unzip -Z1 "$RUNNER_TEMP/UnityAssetEditor.ipa" | grep -q 'Payload/UnityAssetEditor.app/Frameworks/UnityAssetEditorBridge.framework/UnityAssetEditorBridge'
+          unzip -Z1 "$RUNNER_TEMP/UnityAssetEditor.ipa" | grep -q 'Payload/UnityAssetEditor.app/UnityAssetEditor'
+          if unzip -Z1 "$RUNNER_TEMP/UnityAssetEditor.ipa" | grep -q 'Payload/UnityAssetEditor.app/Frameworks/'; then
+            echo 'Unexpected embedded dynamic framework remains in IPA'
+            exit 1
+          fi
           rm -rf "$RUNNER_TEMP/ipa-verify"
           mkdir -p "$RUNNER_TEMP/ipa-verify"
           /usr/bin/ditto -x -k "$RUNNER_TEMP/UnityAssetEditor.ipa" "$RUNNER_TEMP/ipa-verify"
-          /usr/bin/codesign --verify --strict "$RUNNER_TEMP/ipa-verify/Payload/UnityAssetEditor.app/Frameworks/UnityAssetEditorBridge.framework"
           /usr/bin/codesign --verify --strict --deep "$RUNNER_TEMP/ipa-verify/Payload/UnityAssetEditor.app"
 
       - name: Upload IPA
