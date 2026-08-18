@@ -1,86 +1,89 @@
 import Foundation
 
-struct AssetToolsBridgeInfo: Hashable {
-    let kind: String
-    let unityVersion: String?
-    let assetCount: Int
+struct BridgeResponse: Decodable {
+    let ok: Bool
+    let error: String?
+    let result: JSONValue?
 }
 
-enum AssetToolsBridgeError: LocalizedError {
-    case unavailable
-    case invalidResponse
-    case unsupported(String)
+enum JSONValue: Decodable {
+    case object([String: JSONValue])
+    case array([JSONValue])
+    case string(String)
+    case number(Double)
+    case bool(Bool)
+    case null
 
-    var errorDescription: String? {
-        switch self {
-        case .unavailable:
-            return "AssetsTools.NET is not embedded in this build."
-        case .invalidResponse:
-            return "The AssetsTools.NET bridge returned invalid data."
-        case .unsupported(let message):
-            return message
-        }
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() { self = .null }
+        else if let value = try? container.decode(Bool.self) { self = .bool(value) }
+        else if let value = try? container.decode(Double.self) { self = .number(value) }
+        else if let value = try? container.decode(String.self) { self = .string(value) }
+        else if let value = try? container.decode([String: JSONValue].self) { self = .object(value) }
+        else { self = .array(try container.decode([JSONValue].self)) }
     }
 }
 
-protocol AssetToolsBridge {
-    func inspect(at url: URL) throws -> AssetToolsBridgeInfo
-    func listObjects(at url: URL) throws -> [SerializedObjectInfo]
-    func fields(for object: SerializedObjectInfo, at url: URL) throws -> [SerializedObjectField]
-    func updateField(_ field: SerializedObjectField, for object: SerializedObjectInfo, at url: URL, outputURL: URL) throws
-    func writeBundle(at url: URL, outputURL: URL) throws
+private struct BridgeError: LocalizedError {
+    let message: String
+    var errorDescription: String? { message }
 }
 
-struct NativeAssetToolsBridge: AssetToolsBridge {
-    private let client: NativeBridgeClient
+final class AssetToolsBridge {
+    static let shared = AssetToolsBridge()
 
-    init(client: NativeBridgeClient = NativeBridgeClient()) {
-        self.client = client
-    }
+    private let lock = NSLock()
+    private var initialized = false
 
-    func inspect(at url: URL) throws -> AssetToolsBridgeInfo {
-        let object = try jsonObject(client.inspect(path: url.path))
-        guard let info = object["result"] as? [String: Any], let nestedInfo = info["info"] as? [String: Any], let kind = nestedInfo["kind"] as? String, let assetCount = nestedInfo["assetCount"] as? Int else { throw AssetToolsBridgeError.invalidResponse }
-        return AssetToolsBridgeInfo(kind: kind, unityVersion: nestedInfo["unityVersion"] as? String, assetCount: assetCount)
-    }
+    private init() {}
 
-    func listObjects(at url: URL) throws -> [SerializedObjectInfo] {
-        let object = try jsonObject(client.listObjects(path: url.path))
-        guard let result = object["result"] as? [String: Any], let values = result["objects"] as? [[String: Any]] else { throw AssetToolsBridgeError.invalidResponse }
-        return values.compactMap { value -> SerializedObjectInfo? in
-            guard let id = value["id"] as? String, let pathID = value["pathID"] as? Int64 ?? (value["pathID"] as? Int).map(Int64.init), let typeID = value["typeID"] as? Int32 ?? (value["typeID"] as? Int).map(Int32.init), let byteOffset = value["byteOffset"] as? UInt64 ?? (value["byteOffset"] as? Int).map(UInt64.init), let byteSize = value["byteSize"] as? UInt32 ?? (value["byteSize"] as? UInt64).map(UInt32.init) ?? (value["byteSize"] as? Int).map(UInt32.init), let typeName = value["typeName"] as? String, let displayName = value["displayName"] as? String else { return nil }
-            return SerializedObjectInfo(id: id, pathID: pathID, typeID: typeID, byteOffset: byteOffset, byteSize: byteSize, typeName: typeName, displayName: displayName)
+    func initialize() throws {
+        try lock.withLock {
+            if initialized { return }
+            let status = uae_bridge_initialize()
+            guard status == 0 else {
+                throw BridgeError(message: "Native asset bridge initialization failed (status \(status)).")
+            }
+            initialized = true
         }
     }
 
-    func fields(for object: SerializedObjectInfo, at url: URL) throws -> [SerializedObjectField] {
-        let payload = try jsonObject(client.getFields(path: url.path, pathID: object.pathID))
-        guard let result = payload["result"] as? [String: Any], let values = result["fields"] as? [[String: Any]] else { throw AssetToolsBridgeError.invalidResponse }
-        return values.compactMap { value in
-            guard let id = value["id"] as? String, let name = value["name"] as? String, let type = value["type"] as? String, let fieldValue = value["value"] as? String, let depth = value["depth"] as? Int, let editable = value["editable"] as? Bool else { return nil }
-            return SerializedObjectField(id: id, name: name, type: type, value: fieldValue, depth: depth, editable: editable)
+    func execute(_ request: [String: Any]) throws -> BridgeResponse {
+        try initialize()
+        let data = try JSONSerialization.data(withJSONObject: request, options: [])
+        let responseData = try data.withUnsafeBytes { rawBuffer -> Data in
+            guard let baseAddress = rawBuffer.baseAddress else {
+                throw BridgeError(message: "Unable to create bridge request.")
+            }
+            let result = uae_bridge_execute(baseAddress.assumingMemoryBound(to: UInt8.self), Int32(data.count))
+            guard let result else {
+                throw BridgeError(message: "Native bridge returned a null response.")
+            }
+            defer { uae_bridge_free(result) }
+            return Data(bytes: result, count: strlen(result))
         }
-    }
-
-    func updateField(_ field: SerializedObjectField, for object: SerializedObjectInfo, at url: URL, outputURL: URL) throws {
-        try client.updateField(path: url.path, pathID: object.pathID, fieldPath: field.name, value: field.value, outputPath: outputURL.path)
-    }
-
-    func writeBundle(at url: URL, outputURL: URL) throws {
-        try client.writeBundle(path: url.path, outputPath: outputURL.path)
-    }
-
-    private func jsonObject(_ data: Data) throws -> [String: Any] {
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw AssetToolsBridgeError.invalidResponse }
-        if let ok = object["ok"] as? Bool, !ok, let error = object["error"] as? String { throw AssetToolsBridgeError.unsupported(error) }
-        return object
+        let response = try JSONDecoder().decode(BridgeResponse.self, from: responseData)
+        if !response.ok {
+            throw BridgeError(message: response.error ?? "Native bridge request failed.")
+        }
+        return response
     }
 }
 
-struct UnavailableAssetToolsBridge: AssetToolsBridge {
-    func inspect(at url: URL) throws -> AssetToolsBridgeInfo { throw AssetToolsBridgeError.unavailable }
-    func listObjects(at url: URL) throws -> [SerializedObjectInfo] { throw AssetToolsBridgeError.unavailable }
-    func fields(for object: SerializedObjectInfo, at url: URL) throws -> [SerializedObjectField] { throw AssetToolsBridgeError.unavailable }
-    func updateField(_ field: SerializedObjectField, for object: SerializedObjectInfo, at url: URL, outputURL: URL) throws { throw AssetToolsBridgeError.unavailable }
-    func writeBundle(at url: URL, outputURL: URL) throws { throw AssetToolsBridgeError.unavailable }
+private extension NSLock {
+    func withLock<T>(_ body: () throws -> T) rethrows -> T {
+        lock()
+        defer { unlock() }
+        return try body()
+    }
 }
+
+@_silgen_name("uae_bridge_initialize")
+private func uae_bridge_initialize() -> Int32
+
+@_silgen_name("uae_bridge_execute")
+private func uae_bridge_execute(_ request: UnsafePointer<UInt8>, _ requestLength: Int32) -> UnsafeMutablePointer<CChar>?
+
+@_silgen_name("uae_bridge_free")
+private func uae_bridge_free(_ value: UnsafeMutablePointer<CChar>)
