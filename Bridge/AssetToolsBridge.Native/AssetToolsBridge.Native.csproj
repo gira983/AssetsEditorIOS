@@ -8,7 +8,7 @@
     <PublishAot>true</PublishAot>
     <PublishAotUsingRuntimePack>true</PublishAotUsingRuntimePack>
     <SelfContained>true</SelfContained>
-    <NativeLib>Static</NativeLib>
+    <NativeLib>Shared</NativeLib>
     <InvariantGlobalization>true</InvariantGlobalization>
     <StripSymbols>false</StripSymbols>
     <PublishTrimmed>true</PublishTrimmed>
@@ -17,22 +17,4 @@
   <ItemGroup>
     <ProjectReference Include="..\AssetToolsBridge.Managed\AssetToolsBridge.Managed.csproj" />
   </ItemGroup>
-  <Target Name="WriteNativeAotLinkerInputs" AfterTargets="Publish">
-    <PropertyGroup>
-      <NativeAotLinkerInputFile>$(PublishDir)nativeaot-linker-inputs.txt</NativeAotLinkerInputFile>
-    </PropertyGroup>
-    <ItemGroup>
-      <NativeAotLinkerInput Include="$(IlcSdkPath)libbootstrapperdll.o" Condition="Exists('$(IlcSdkPath)libbootstrapperdll.o')" />
-      <NativeAotLinkerInput Include="$(IlcSdkPath)libRuntime.WorkstationGC.a" Condition="Exists('$(IlcSdkPath)libRuntime.WorkstationGC.a')" />
-      <NativeAotLinkerInput Include="$(IlcSdkPath)libeventpipe-disabled.a" Condition="Exists('$(IlcSdkPath)libeventpipe-disabled.a')" />
-      <NativeAotLinkerInput Include="$(IlcSdkPath)libRuntime.VxsortDisabled.a" Condition="Exists('$(IlcSdkPath)libRuntime.VxsortDisabled.a')" />
-      <NativeAotLinkerInput Include="$(IlcSdkPath)libstandalonegc-disabled.a" Condition="Exists('$(IlcSdkPath)libstandalonegc-disabled.a')" />
-      <NativeAotLinkerInput Include="$(IlcSdkPath)libaotminipal.a" Condition="Exists('$(IlcSdkPath)libaotminipal.a')" />
-      <NativeAotLinkerInput Include="$(IlcSdkPath)libstdc++compat.a" Condition="Exists('$(IlcSdkPath)libstdc++compat.a')" />
-      <NativeAotLinkerInput Include="$(IlcFrameworkNativePath)libSystem.Native.a" Condition="Exists('$(IlcFrameworkNativePath)libSystem.Native.a')" />
-      <NativeAotLinkerInput Include="$(IlcFrameworkNativePath)libSystem.IO.Compression.Native.a" Condition="Exists('$(IlcFrameworkNativePath)libSystem.IO.Compression.Native.a')" />
-      <NativeAotLinkerInput Include="$(IlcFrameworkNativePath)libSystem.Security.Cryptography.Native.Apple.a" Condition="Exists('$(IlcFrameworkNativePath)libSystem.Security.Cryptography.Native.Apple.a')" />
-    </ItemGroup>
-    <WriteLinesToFile File="$(NativeAotLinkerInputFile)" Lines="@(NativeAotLinkerInput)" Overwrite="true" />
-  </Target>
 </Project>
