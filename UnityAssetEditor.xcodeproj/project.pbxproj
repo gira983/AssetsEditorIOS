@@ -37,7 +37,6 @@
 		A100000000000000000000BA /* Phase6Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000009A /* Phase6Tests.swift */; };
 		A100000000000000000000BB /* RawObjectDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000040 /* RawObjectDataProvider.swift */; };
 		A100000000000000000000BC /* AssetDiffModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000066 /* AssetDiffModels.swift */; };
-		A100000000000000000000C1 /* UnityAssetEditorBridge in Frameworks */ = {isa = PBXBuildFile; fileRef = A100000000000000000000C5 /* libUnityAssetEditorBridge.a */; };
 		A100000000000000000000C3 /* AssetToolsBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000C6 /* AssetToolsBridge.swift */; };
 		A100000000000000000000C4 /* UnityAssetEditorBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000C7 /* UnityAssetEditorBridge.swift */; };
 /* End PBXBuildFile section */
@@ -83,7 +82,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		A10000000000000000000041 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A100000000000000000000C1 /* UnityAssetEditorBridge in Frameworks */,); runOnlyForDeploymentPostprocessing = 0; };
+		A10000000000000000000041 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000044 /* Test Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
