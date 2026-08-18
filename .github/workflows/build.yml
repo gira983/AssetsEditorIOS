@@ -81,13 +81,15 @@ jobs:
           mkdir -p Bridge/Build
           cp "$RUNNER_TEMP/AssetsToolsBridgeNative/ios-arm64/AssetToolsBridge.Native.a" Bridge/Build/libUnityAssetEditorBridge.a
           cp "$RUNNER_TEMP/AssetsToolsBridgeNative/iossimulator-arm64/AssetToolsBridge.Native.a" Bridge/Build/libUnityAssetEditorBridge-simulator.a
-          nm -gU Bridge/Build/libUnityAssetEditorBridge.a | grep -q 'uae_bridge_execute'
+          nm -gU Bridge/Build/libUnityAssetEditorBridge.a > "$RUNNER_TEMP/bridge-symbols.txt"
+          grep -q 'uae_bridge_execute' "$RUNNER_TEMP/bridge-symbols.txt"
 
       - name: Verify NativeAOT export
         run: |
           set -euo pipefail
           test -f Bridge/Build/libUnityAssetEditorBridge.a
-          nm -gU Bridge/Build/libUnityAssetEditorBridge.a | grep -q 'uae_bridge_execute'
+          nm -gU Bridge/Build/libUnityAssetEditorBridge.a > "$RUNNER_TEMP/bridge-symbols.txt"
+          grep -q 'uae_bridge_execute' "$RUNNER_TEMP/bridge-symbols.txt"
 
       - name: Run managed bridge smoke checks
         run: |
