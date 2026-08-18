@@ -1,49 +1,64 @@
-using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
-using System.Text;
+using System.Runtime.InteropServices;
+using System.Text.Json;
 using AssetToolsBridge.Managed;
 
 namespace AssetToolsBridge.Native;
 
-public static unsafe class NativeExports
+public static class NativeExports
 {
-    [UnmanagedCallersOnly(EntryPoint = "uae_bridge_execute", CallConvs = new[] { typeof(CallConvCdecl) })]
-    public static int Execute(byte* requestUtf8, byte* outputUtf8, int outputCapacity)
+    [UnmanagedCallersOnly(EntryPoint = "NativeAOT_StaticInitialization", CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static void NativeAOTStaticInitialization()
     {
-        if (requestUtf8 == null || outputUtf8 == null || outputCapacity <= 0)
-            return -1;
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "uae_bridge_initialize", CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static int Initialize()
+    {
         try
         {
-            var request = ReadUtf8(requestUtf8);
-            if (request is null)
-                return -1;
-            return WriteUtf8(BridgeApi.Execute(request), outputUtf8, outputCapacity);
+            BridgeApi.Initialize();
+            return 0;
+        }
+        catch
+        {
+            return -1;
+        }
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "uae_bridge_execute", CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static unsafe IntPtr Execute(byte* requestUtf8, int requestLength)
+    {
+        if (requestUtf8 == null || requestLength < 0)
+        {
+            return IntPtr.Zero;
+        }
+
+        try
+        {
+            BridgeApi.Initialize();
+            var request = ReadUtf8(requestUtf8, requestLength);
+            var response = BridgeApi.Execute(request);
+            return Marshal.StringToCoTaskMemUTF8(response);
         }
         catch (Exception exception)
         {
-            return WriteUtf8(BridgeApi.Error(exception.Message), outputUtf8, outputCapacity);
+            var response = JsonSerializer.Serialize(new { ok = false, error = exception.Message });
+            return Marshal.StringToCoTaskMemUTF8(response);
         }
     }
 
-    private static int WriteUtf8(string value, byte* output, int capacity)
+    [UnmanagedCallersOnly(EntryPoint = "uae_bridge_free", CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static void Free(IntPtr value)
     {
-        var bytes = Encoding.UTF8.GetBytes(value);
-        if (bytes.Length + 1 > capacity)
-            return -3;
-        bytes.CopyTo(new Span<byte>(output, capacity));
-        output[bytes.Length] = 0;
-        return bytes.Length;
-    }
-
-    private static string? ReadUtf8(byte* value)
-    {
-        var length = 0;
-        while (value[length] != 0)
+        if (value != IntPtr.Zero)
         {
-            length++;
-            if (length > 16 * 1024 * 1024)
-                return null;
+            Marshal.FreeCoTaskMem(value);
         }
-        return Encoding.UTF8.GetString(new ReadOnlySpan<byte>(value, length));
+    }
+
+    private static unsafe string ReadUtf8(byte* pointer, int length)
+    {
+        return Encoding.UTF8.GetString(new ReadOnlySpan<byte>(pointer, length));
     }
 }
