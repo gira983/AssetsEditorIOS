@@ -4,19 +4,19 @@
     <OutputType>Library</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <PublishAot>true</PublishAot>
-    <PublishAotUsingRuntimePack>true</PublishAotUsingRuntimePack>
     <SelfContained>true</SelfContained>
     <NativeLib>Static</NativeLib>
-    <InvariantGlobalization>true</InvariantGlobalization>
     <StripSymbols>false</StripSymbols>
-    <PublishTrimmed>true</PublishTrimmed>
-    <IsTrimmable>false</IsTrimmable>
+    <IlcGenerateDirectPInvoke>true</IlcGenerateDirectPInvoke>
+    <IlcDisableReflection>true</IlcDisableReflection>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
+    <IsTrimmable>true</IsTrimmable>
+    <RootAllApplicationAssemblies>true</RootAllApplicationAssemblies>
+    <IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\AssetToolsBridge.Managed\BridgeApi.cs" Link="BridgeApi.cs" />
-    <Compile Include="NativeExports.cs" />
-    <PackageReference Include="AssetsTools.NET" Version="3.0.5" />
+    <ProjectReference Include="..\AssetToolsBridge.Managed\AssetToolsBridge.Managed.csproj" />
   </ItemGroup>
 </Project>
