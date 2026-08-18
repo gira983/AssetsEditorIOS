@@ -240,29 +240,40 @@ jobs:
           </plist>
           PLIST
 
-          framework_binary="$APP_PATH/Frameworks/UnityAssetEditorBridge.framework/UnityAssetEditorBridge"
+          framework="$APP_PATH/Frameworks/UnityAssetEditorBridge.framework"
+          framework_binary="$framework/UnityAssetEditorBridge"
+          test -d "$framework"
           test -f "$framework_binary"
           chmod 755 "$framework_binary"
-          /usr/bin/codesign --force --sign - --timestamp=none --entitlements "$ENTITLEMENTS" "$framework_binary"
-          /usr/bin/codesign --verify --strict --verbose=4 "$framework_binary"
+
+          /usr/bin/codesign --force --sign - --timestamp=none --entitlements "$ENTITLEMENTS" "$framework"
+          /usr/bin/codesign --verify --strict --verbose=4 "$framework"
 
           /usr/bin/codesign --force --sign - --timestamp=none --entitlements "$ENTITLEMENTS" "$APP_PATH"
           /usr/bin/codesign --verify --strict --deep --verbose=4 "$APP_PATH"
-          /usr/bin/codesign --display --verbose=4 "$framework_binary"
+          /usr/bin/codesign --display --verbose=4 "$framework"
           /usr/bin/codesign --display --verbose=4 "$APP_PATH"
 
       - name: Package IPA
         run: |
           set -euo pipefail
           APP_PATH="$RUNNER_TEMP/UnityAssetEditor.xcarchive/Products/Applications/UnityAssetEditor.app"
-          framework_binary="$APP_PATH/Frameworks/UnityAssetEditorBridge.framework/UnityAssetEditorBridge"
+          framework="$APP_PATH/Frameworks/UnityAssetEditorBridge.framework"
+          framework_binary="$framework/UnityAssetEditorBridge"
           test -x "$APP_PATH/UnityAssetEditor"
           test -x "$framework_binary"
+          test -f "$framework/_CodeSignature/CodeResources"
+          /usr/bin/codesign --verify --strict "$framework"
           /usr/bin/codesign --verify --strict --deep "$APP_PATH"
           mkdir -p "$RUNNER_TEMP/ipa/Payload"
           cp -R "$APP_PATH" "$RUNNER_TEMP/ipa/Payload/"
           /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/ipa/Payload" "$RUNNER_TEMP/UnityAssetEditor.ipa"
           unzip -Z1 "$RUNNER_TEMP/UnityAssetEditor.ipa" | grep -q 'Payload/UnityAssetEditor.app/Frameworks/UnityAssetEditorBridge.framework/UnityAssetEditorBridge'
+          rm -rf "$RUNNER_TEMP/ipa-verify"
+          mkdir -p "$RUNNER_TEMP/ipa-verify"
+          /usr/bin/ditto -x -k "$RUNNER_TEMP/UnityAssetEditor.ipa" "$RUNNER_TEMP/ipa-verify"
+          /usr/bin/codesign --verify --strict "$RUNNER_TEMP/ipa-verify/Payload/UnityAssetEditor.app/Frameworks/UnityAssetEditorBridge.framework"
+          /usr/bin/codesign --verify --strict --deep "$RUNNER_TEMP/ipa-verify/Payload/UnityAssetEditor.app"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
