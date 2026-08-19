@@ -93,7 +93,6 @@ jobs:
             libbootstrapperdll.o \
             libRuntime.WorkstationGC.a \
             libeventpipe-disabled.a \
-            libRuntime.VxsortDisabled.a \
             libstandalonegc-disabled.a \
             libstdc++compat.a \
             libSystem.Native.a \
