@@ -129,7 +129,11 @@ final class AssetToolsBridge {
                 throw AssetToolsBridgeError.operationFailed("The native AssetsTools.NET bridge returned no response.")
             }
             defer { uae_bridge_free(result) }
-            return String(cString: result)
+            let responseData = Data(bytes: result, count: cStringLength(result))
+            guard let responseString = String(data: responseData, encoding: .utf8) else {
+                throw AssetToolsBridgeError.invalidResponse
+            }
+            return responseString
         }
         guard let response = try JSONSerialization.jsonObject(with: Data(responseString.utf8), options: []) as? [String: Any] else {
             throw AssetToolsBridgeError.invalidResponse
@@ -163,6 +167,12 @@ private extension NSLock {
         defer { unlock() }
         return try body()
     }
+}
+
+private func cStringLength(_ pointer: UnsafePointer<CChar>) -> Int {
+    var length = 0
+    while pointer[length] != 0 { length += 1 }
+    return length
 }
 
 @_silgen_name("uae_bridge_initialize")
