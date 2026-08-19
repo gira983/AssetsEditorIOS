@@ -95,7 +95,6 @@ jobs:
             libeventpipe-disabled.a \
             libRuntime.VxsortDisabled.a \
             libstandalonegc-disabled.a \
-            libaotminipal.a \
             libstdc++compat.a \
             libSystem.Native.a \
             libSystem.IO.Compression.Native.a \
