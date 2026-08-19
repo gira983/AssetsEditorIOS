@@ -27,7 +27,7 @@ final class NativeSerializedFileBackend: AssetBackend {
         fieldEditor: SerializedFieldEditor = SerializedFieldEditor(),
         rawObjectDataProvider: RawObjectDataProvider = RawObjectDataProvider(),
         transaction: SerializedFileTransaction = SerializedFileTransaction(),
-        bridge: AssetToolsBridge = NativeAssetToolsBridge()
+        bridge: AssetToolsBridge = .shared
     ) {
         self.parser = parser
         self.fieldEditor = fieldEditor

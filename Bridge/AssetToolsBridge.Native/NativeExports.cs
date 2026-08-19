@@ -17,15 +17,7 @@ public static class NativeExports
     [UnmanagedCallersOnly(EntryPoint = "uae_bridge_initialize", CallConvs = new[] { typeof(CallConvCdecl) })]
     public static int Initialize()
     {
-        try
-        {
-            BridgeApi.Initialize();
-            return 0;
-        }
-        catch
-        {
-            return -1;
-        }
+        return 0;
     }
 
     [UnmanagedCallersOnly(EntryPoint = "uae_bridge_execute", CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -38,7 +30,6 @@ public static class NativeExports
 
         try
         {
-            BridgeApi.Initialize();
             var request = ReadUtf8(requestUtf8, requestLength);
             var response = BridgeApi.Execute(request);
             return Marshal.StringToCoTaskMemUTF8(response);
