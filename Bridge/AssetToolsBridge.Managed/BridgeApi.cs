@@ -3,7 +3,6 @@ using AssetsTools.NET.Extra;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace AssetToolsBridge.Managed;
 
@@ -44,117 +43,87 @@ public sealed class BridgeDocument : IDisposable
         }
     }
 
-    public JsonObject Inspect()
+    public string Inspect()
     {
         if (assetsFile is not null)
         {
-            var assets = new JsonArray();
-            foreach (var info in assetsFile.file.AssetInfos)
+            var assets = new StringBuilder("[");
+            for (var index = 0; index < assetsFile.file.AssetInfos.Count; index++)
             {
+                if (index > 0) assets.Append(',');
+                var info = assetsFile.file.AssetInfos[index];
                 var typeId = info.GetTypeId(assetsFile.file);
-                assets.Add(new JsonObject
-                {
-                    ["fileName"] = Path.GetFileName(assetsFile.path),
-                    ["pathId"] = info.PathId,
-                    ["classId"] = typeId,
-                    ["byteSize"] = info.ByteSize,
-                    ["assetType"] = typeId.ToString(CultureInfo.InvariantCulture),
-                    ["name"] = null
-                });
+                assets.Append("{\"fileName\":").Append(JsonString(Path.GetFileName(assetsFile.path)))
+                    .Append(",\"pathId\":").Append(info.PathId)
+                    .Append(",\"classId\":").Append(typeId)
+                    .Append(",\"byteSize\":").Append(info.ByteSize)
+                    .Append(",\"assetType\":").Append(JsonString(typeId.ToString(CultureInfo.InvariantCulture)))
+                    .Append(",\"name\":null}");
             }
-
-            return new JsonObject
-            {
-                ["info"] = new JsonObject
-                {
-                    ["path"] = assetsFile.path,
-                    ["kind"] = "serializedFile",
-                    ["assetCount"] = assetsFile.file.AssetInfos.Count,
-                    ["unityVersion"] = assetsFile.file.Metadata.UnityVersion
-                },
-                ["assets"] = assets
-            };
+            assets.Append(']');
+            return "{\"info\":{\"path\":" + JsonString(assetsFile.path) + ",\"kind\":\"serializedFile\",\"assetCount\":" + assetsFile.file.AssetInfos.Count + ",\"unityVersion\":" + JsonString(assetsFile.file.Metadata.UnityVersion) + "},\"assets\":" + assets + "}";
         }
 
         if (bundleFile is not null)
         {
-            var assets = new JsonArray();
-            foreach (var directory in bundleFile.file.BlockAndDirInfo.DirectoryInfos)
+            var assets = new StringBuilder("[");
+            for (var index = 0; index < bundleFile.file.BlockAndDirInfo.DirectoryInfos.Count; index++)
             {
-                assets.Add(new JsonObject
-                {
-                    ["fileName"] = directory.Name,
-                    ["pathId"] = 0L,
-                    ["classId"] = 0,
-                    ["byteSize"] = (long)directory.DecompressedSize,
-                    ["assetType"] = "bundleEntry",
-                    ["name"] = directory.Name
-                });
+                if (index > 0) assets.Append(',');
+                var directory = bundleFile.file.BlockAndDirInfo.DirectoryInfos[index];
+                assets.Append("{\"fileName\":").Append(JsonString(directory.Name))
+                    .Append(",\"pathId\":0,\"classId\":0,\"byteSize\":").Append(directory.DecompressedSize)
+                    .Append(",\"assetType\":\"bundleEntry\",\"name\":").Append(JsonString(directory.Name)).Append('}');
             }
-
-            return new JsonObject
-            {
-                ["info"] = new JsonObject
-                {
-                    ["path"] = bundleFile.path,
-                    ["kind"] = "assetBundle",
-                    ["assetCount"] = bundleFile.file.BlockAndDirInfo.DirectoryInfos.Count,
-                    ["unityVersion"] = bundleFile.file.Header.EngineVersion
-                },
-                ["assets"] = assets
-            };
+            assets.Append(']');
+            return "{\"info\":{\"path\":" + JsonString(bundleFile.path) + ",\"kind\":\"assetBundle\",\"assetCount\":" + bundleFile.file.BlockAndDirInfo.DirectoryInfos.Count + ",\"unityVersion\":" + JsonString(bundleFile.file.Header.EngineVersion) + "},\"assets\":" + assets + "}";
         }
 
         throw new InvalidOperationException("The document has no loaded file.");
     }
 
-    public JsonObject ListObjects()
+    public string ListObjects()
     {
-        var objects = new JsonArray();
-        if (assetsFile is null)
-            return new JsonObject { ["objects"] = objects };
-
-        foreach (var info in assetsFile.file.AssetInfos)
+        var objects = new StringBuilder("[{0}");
+        if (assetsFile is null) return "{\"objects\":[]}";
+        objects.Clear().Append('[');
+        for (var index = 0; index < assetsFile.file.AssetInfos.Count; index++)
         {
+            if (index > 0) objects.Append(',');
+            var info = assetsFile.file.AssetInfos[index];
             var typeId = info.GetTypeId(assetsFile.file);
-            objects.Add(new JsonObject
-            {
-                ["id"] = $"{info.PathId}:{typeId}",
-                ["pathID"] = info.PathId,
-                ["typeID"] = typeId,
-                ["byteOffset"] = (ulong)info.GetAbsoluteByteOffset(assetsFile.file.Header),
-                ["byteSize"] = (ulong)info.ByteSize,
-                ["typeName"] = typeId.ToString(CultureInfo.InvariantCulture),
-                ["displayName"] = $"{typeId} • {info.PathId}"
-            });
+            objects.Append("{\"id\":").Append(JsonString($"{info.PathId}:{typeId}"))
+                .Append(",\"pathID\":").Append(info.PathId)
+                .Append(",\"typeID\":").Append(typeId)
+                .Append(",\"byteOffset\":").Append((ulong)info.GetAbsoluteByteOffset(assetsFile.file.Header))
+                .Append(",\"byteSize\":").Append((ulong)info.ByteSize)
+                .Append(",\"typeName\":").Append(JsonString(typeId.ToString(CultureInfo.InvariantCulture)))
+                .Append(",\"displayName\":").Append(JsonString($"{typeId} • {info.PathId}"))
+                .Append('}');
         }
-
-        return new JsonObject { ["objects"] = objects };
+        objects.Append(']');
+        return "{\"objects\":" + objects + "}";
     }
 
-    public JsonObject GetFields(long pathId)
+    public string GetFields(long pathId)
     {
-        if (assetsFile is null)
-            throw new InvalidOperationException("Fields are available only for serialized files.");
-
+        if (assetsFile is null) throw new InvalidOperationException("Fields are available only for serialized files.");
         var info = assetsFile.file.GetAssetInfo(pathId) ?? throw new KeyNotFoundException($"Asset {pathId} was not found.");
         var field = manager.GetBaseField(assetsFile, info);
-        var fields = new JsonArray();
-        Flatten(field, field.FieldName, 0, fields);
-        return new JsonObject { ["fields"] = fields };
+        var fields = new StringBuilder("[");
+        var result = new FieldResult(fields);
+        Flatten(field, field.FieldName, 0, result);
+        fields.Append(']');
+        return "{\"fields\":" + fields + "}";
     }
 
     public void UpdateField(long pathId, string fieldPath, string value, string outputPath)
     {
-        if (assetsFile is null)
-            throw new InvalidOperationException("Field updates are available only for serialized files.");
-
+        if (assetsFile is null) throw new InvalidOperationException("Field updates are available only for serialized files.");
         var info = assetsFile.file.GetAssetInfo(pathId) ?? throw new KeyNotFoundException($"Asset {pathId} was not found.");
         var field = manager.GetBaseField(assetsFile, info);
         var target = field[fieldPath];
-        if (target.IsDummy)
-            throw new KeyNotFoundException($"Field {fieldPath} was not found.");
-
+        if (target.IsDummy) throw new KeyNotFoundException($"Field {fieldPath} was not found.");
         SetValue(target, value);
         info.SetNewData(field.WriteToByteArray(assetsFile.file.Reader.BigEndian));
         WriteSerializedFile(outputPath);
@@ -162,12 +131,17 @@ public sealed class BridgeDocument : IDisposable
 
     public void WriteBundle(string outputPath)
     {
-        if (bundleFile is null)
-            throw new InvalidOperationException("The opened document is not an AssetBundle.");
-
+        if (bundleFile is null) throw new InvalidOperationException("The opened document is not an AssetBundle.");
         EnsureParentDirectory(outputPath);
         using var writer = new AssetsFileWriter(outputPath);
         bundleFile.file.Write(writer);
+    }
+
+    private sealed class FieldResult
+    {
+        public StringBuilder Builder { get; }
+        public bool IsFirst { get; set; } = true;
+        public FieldResult(StringBuilder builder) => Builder = builder;
     }
 
     public void Dispose() => manager.UnloadAll();
@@ -186,24 +160,22 @@ public sealed class BridgeDocument : IDisposable
             Directory.CreateDirectory(parent);
     }
 
-    private static void Flatten(AssetTypeValueField field, string path, int depth, JsonArray result)
+    private static void Flatten(AssetTypeValueField field, string path, int depth, FieldResult result)
     {
         if (field.Children.Count == 0)
         {
-            result.Add(new JsonObject
-            {
-                ["id"] = path,
-                ["name"] = path,
-                ["type"] = field.TypeName,
-                ["value"] = field.AsString,
-                ["depth"] = depth,
-                ["editable"] = field.TemplateField.HasValue
-            });
+            if (!result.IsFirst) result.Builder.Append(',');
+            result.IsFirst = false;
+            result.Builder.Append("{\"id\":").Append(JsonString(path))
+                .Append(",\"name\":").Append(JsonString(path))
+                .Append(",\"type\":").Append(JsonString(field.TypeName))
+                .Append(",\"value\":").Append(JsonString(field.AsString))
+                .Append(",\"depth\":").Append(depth)
+                .Append(",\"editable\":").Append(field.TemplateField.HasValue ? "true" : "false")
+                .Append('}');
             return;
         }
-
-        foreach (var child in field.Children)
-            Flatten(child, $"{path}.{child.FieldName}", depth + 1, result);
+        foreach (var child in field.Children) Flatten(child, $"{path}.{child.FieldName}", depth + 1, result);
     }
 
     private static void SetValue(AssetTypeValueField field, string value)
@@ -233,6 +205,30 @@ public sealed class BridgeDocument : IDisposable
         _ => throw new FormatException($"Invalid boolean value: {value}")
     };
 
+    private static string JsonString(string? value)
+    {
+        if (value is null) return "null";
+        var builder = new StringBuilder(value.Length + 2).Append('\"');
+        foreach (var character in value)
+        {
+            switch (character)
+            {
+                case '\\': builder.Append("\\\\"); break;
+                case '\"': builder.Append("\\\""); break;
+                case '\b': builder.Append("\\b"); break;
+                case '\f': builder.Append("\\f"); break;
+                case '\n': builder.Append("\\n"); break;
+                case '\r': builder.Append("\\r"); break;
+                case '\t': builder.Append("\\t"); break;
+                default:
+                    if (character < 0x20) builder.Append("\\u").Append(((int)character).ToString("x4", CultureInfo.InvariantCulture));
+                    else builder.Append(character);
+                    break;
+            }
+        }
+        return builder.Append('\"').ToString();
+    }
+
     private static bool IsBundle(string path)
     {
         using var stream = File.OpenRead(path);
@@ -244,16 +240,6 @@ public sealed class BridgeDocument : IDisposable
 
 public static class BridgeApi
 {
-    public static string Serialize(JsonNode node)
-    {
-        using var stream = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(stream))
-        {
-            node.WriteTo(writer);
-        }
-        return Encoding.UTF8.GetString(stream.ToArray());
-    }
-
     public static string Execute(string request)
     {
         using var document = JsonDocument.Parse(request);
@@ -270,22 +256,46 @@ public static class BridgeApi
             "writeBundle" => WriteBundle(opened, root),
             _ => throw new NotSupportedException($"Unknown operation: {operation}")
         };
-        return Serialize(new JsonObject { ["ok"] = true, ["result"] = result });
+        return "{\"ok\":true,\"result\":" + result + "}";
     }
 
-    public static string Error(string message) => Serialize(new JsonObject { ["ok"] = false, ["error"] = message });
+    public static string Error(string message) => "{\"ok\":false,\"error\":" + JsonString(message) + "}";
 
-    public static string Inspect(string path) => Execute(Serialize(new JsonObject { ["operation"] = "inspect", ["path"] = path }));
+    public static string Inspect(string path) => Execute("{\"operation\":\"inspect\",\"path\":" + JsonString(path) + "}");
 
-    private static JsonObject Update(BridgeDocument document, JsonElement root)
+    private static string Update(BridgeDocument document, JsonElement root)
     {
         document.UpdateField(root.GetProperty("pathId").GetInt64(), root.GetProperty("fieldPath").GetString()!, root.GetProperty("value").GetString()!, root.GetProperty("outputPath").GetString()!);
-        return new JsonObject { ["written"] = true };
+        return "{\"written\":true}";
     }
 
-    private static JsonObject WriteBundle(BridgeDocument document, JsonElement root)
+    private static string WriteBundle(BridgeDocument document, JsonElement root)
     {
         document.WriteBundle(root.GetProperty("outputPath").GetString()!);
-        return new JsonObject { ["written"] = true };
+        return "{\"written\":true}";
+    }
+
+    private static string JsonString(string? value)
+    {
+        if (value is null) return "null";
+        var builder = new StringBuilder(value.Length + 2).Append('\"');
+        foreach (var character in value)
+        {
+            switch (character)
+            {
+                case '\\': builder.Append("\\\\"); break;
+                case '\"': builder.Append("\\\""); break;
+                case '\b': builder.Append("\\b"); break;
+                case '\f': builder.Append("\\f"); break;
+                case '\n': builder.Append("\\n"); break;
+                case '\r': builder.Append("\\r"); break;
+                case '\t': builder.Append("\\t"); break;
+                default:
+                    if (character < 0x20) builder.Append("\\u").Append(((int)character).ToString("x4", CultureInfo.InvariantCulture));
+                    else builder.Append(character);
+                    break;
+            }
+        }
+        return builder.Append('\"').ToString();
     }
 }
