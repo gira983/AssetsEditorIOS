@@ -85,7 +85,7 @@ jobs:
           test -n "$runtime_bootstrap"
           runtime_native_dir="$(dirname "$runtime_bootstrap")"
           echo "NativeAOT runtime directory: $runtime_native_dir"
-          find "$device_publish" -maxdepth 1 -type f -print -exec ls -lh {} \\;
+          find "$device_publish" -maxdepth 1 -type f -print -exec ls -lh {} \;
           ar -t "$device_publish/AssetToolsBridge.Native.a" | head -40
           cp "$device_publish/AssetToolsBridge.Native.a" Bridge/Build/libUnityAssetEditorBridge.a
           cp "$simulator_publish/AssetToolsBridge.Native.a" Bridge/Build/libUnityAssetEditorBridge-simulator.a
@@ -103,7 +103,7 @@ jobs:
             test -f "$runtime_native_dir/$name"
             cp "$runtime_native_dir/$name" "Bridge/Build/$name"
           done
-          find Bridge/Build -maxdepth 1 -type f -print -exec ls -lh {} \\;
+          find Bridge/Build -maxdepth 1 -type f -print -exec ls -lh {} \;
           nm -gU Bridge/Build/libUnityAssetEditorBridge.a > "$RUNNER_TEMP/bridge-symbols.txt"
           grep -q 'uae_bridge_execute' "$RUNNER_TEMP/bridge-symbols.txt"
 
