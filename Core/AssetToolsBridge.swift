@@ -145,7 +145,7 @@ final class AssetToolsBridge {
     }
 
     private func integer(_ value: Any?) -> Int? {
-        (value as? NSNumber).map(Int.init)
+        (value as? NSNumber).map { $0.intValue }
     }
 
     private func integer32(_ value: Any?) -> Int32? {
@@ -153,7 +153,7 @@ final class AssetToolsBridge {
     }
 
     private func integer64(_ value: Any?) -> Int64? {
-        (value as? NSNumber).map(Int64.init)
+        (value as? NSNumber).map { $0.int64Value }
     }
 }
 
