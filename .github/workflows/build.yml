@@ -101,6 +101,16 @@ jobs:
             test -f "$runtime_native_dir/$name"
             cp "$runtime_native_dir/$name" "Bridge/Build/$name"
           done
+          for name in \
+            libRuntime.WorkstationGC.a \
+            libeventpipe-disabled.a \
+            libstandalonegc-disabled.a \
+            libstdc++compat.a \
+            libSystem.Native.a \
+            libSystem.IO.Compression.Native.a \
+            libSystem.Security.Cryptography.Native.Apple.a; do
+            ar -t "Bridge/Build/$name" | head -2 || true
+          done
           find Bridge/Build -maxdepth 1 -type f -print
           ls -lh Bridge/Build
           nm -gU Bridge/Build/libUnityAssetEditorBridge.a > "$RUNNER_TEMP/bridge-symbols.txt"
