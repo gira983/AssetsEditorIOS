@@ -217,6 +217,7 @@ jobs:
           -archivePath "$RUNNER_TEMP/UnityAssetEditor.xcarchive"
           CODE_SIGNING_ALLOWED=NO
           CODE_SIGNING_REQUIRED=NO
+          SWIFT_VERSION=5.0
           archive
 
       - name: Add TrollStore-compatible ad hoc signature
