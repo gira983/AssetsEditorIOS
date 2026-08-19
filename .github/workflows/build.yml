@@ -79,10 +79,31 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p Bridge/Build
-          find "$RUNNER_TEMP/AssetsToolsBridgeNative/ios-arm64" -maxdepth 1 -type f -print -exec ls -lh {} \;
-          ar -t "$RUNNER_TEMP/AssetsToolsBridgeNative/ios-arm64/AssetToolsBridge.Native.a" | head -40
-          cp "$RUNNER_TEMP/AssetsToolsBridgeNative/ios-arm64/AssetToolsBridge.Native.a" Bridge/Build/libUnityAssetEditorBridge.a
-          cp "$RUNNER_TEMP/AssetsToolsBridgeNative/iossimulator-arm64/AssetToolsBridge.Native.a" Bridge/Build/libUnityAssetEditorBridge-simulator.a
+          device_publish="$RUNNER_TEMP/AssetsToolsBridgeNative/ios-arm64"
+          simulator_publish="$RUNNER_TEMP/AssetsToolsBridgeNative/iossimulator-arm64"
+          runtime_bootstrap="$(find "$HOME/.nuget/packages" -type f -path '*/runtimes/ios-arm64/native/libbootstrapperdll.o' -print -quit)"
+          test -n "$runtime_bootstrap"
+          runtime_native_dir="$(dirname "$runtime_bootstrap")"
+          echo "NativeAOT runtime directory: $runtime_native_dir"
+          find "$device_publish" -maxdepth 1 -type f -print -exec ls -lh {} \\;
+          ar -t "$device_publish/AssetToolsBridge.Native.a" | head -40
+          cp "$device_publish/AssetToolsBridge.Native.a" Bridge/Build/libUnityAssetEditorBridge.a
+          cp "$simulator_publish/AssetToolsBridge.Native.a" Bridge/Build/libUnityAssetEditorBridge-simulator.a
+          for name in \
+            libbootstrapperdll.o \
+            libRuntime.WorkstationGC.a \
+            libeventpipe-disabled.a \
+            libRuntime.VxsortDisabled.a \
+            libstandalonegc-disabled.a \
+            libaotminipal.a \
+            libstdc++compat.a \
+            libSystem.Native.a \
+            libSystem.IO.Compression.Native.a \
+            libSystem.Security.Cryptography.Native.Apple.a; do
+            test -f "$runtime_native_dir/$name"
+            cp "$runtime_native_dir/$name" "Bridge/Build/$name"
+          done
+          find Bridge/Build -maxdepth 1 -type f -print -exec ls -lh {} \\;
           nm -gU Bridge/Build/libUnityAssetEditorBridge.a > "$RUNNER_TEMP/bridge-symbols.txt"
           grep -q 'uae_bridge_execute' "$RUNNER_TEMP/bridge-symbols.txt"
 
