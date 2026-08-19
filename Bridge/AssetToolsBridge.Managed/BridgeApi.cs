@@ -1,6 +1,7 @@
 using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -243,7 +244,15 @@ public sealed class BridgeDocument : IDisposable
 
 public static class BridgeApi
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
+    public static string Serialize(JsonNode node)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            node.WriteTo(writer);
+        }
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
 
     public static string Execute(string request)
     {
@@ -261,12 +270,12 @@ public static class BridgeApi
             "writeBundle" => WriteBundle(opened, root),
             _ => throw new NotSupportedException($"Unknown operation: {operation}")
         };
-        return new JsonObject { ["ok"] = true, ["result"] = result }.ToJsonString(JsonOptions);
+        return Serialize(new JsonObject { ["ok"] = true, ["result"] = result });
     }
 
-    public static string Error(string message) => new JsonObject { ["ok"] = false, ["error"] = message }.ToJsonString(JsonOptions);
+    public static string Error(string message) => Serialize(new JsonObject { ["ok"] = false, ["error"] = message });
 
-    public static string Inspect(string path) => Execute(new JsonObject { ["operation"] = "inspect", ["path"] = path }.ToJsonString(JsonOptions));
+    public static string Inspect(string path) => Execute(Serialize(new JsonObject { ["operation"] = "inspect", ["path"] = path }));
 
     private static JsonObject Update(BridgeDocument document, JsonElement root)
     {

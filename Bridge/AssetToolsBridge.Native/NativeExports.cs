@@ -2,7 +2,6 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.Json;
 using AssetToolsBridge.Managed;
 
 namespace AssetToolsBridge.Native;
@@ -36,8 +35,7 @@ public static class NativeExports
         }
         catch (Exception exception)
         {
-            var response = JsonSerializer.Serialize(new { ok = false, error = exception.Message });
-            return Marshal.StringToCoTaskMemUTF8(response);
+            return Marshal.StringToCoTaskMemUTF8(BridgeApi.Error(exception.Message));
         }
     }
 
