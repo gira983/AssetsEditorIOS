@@ -1,4 +1,5 @@
 using AssetToolsBridge.Managed;
+using AssetsTools.NET.Extra;
 
 internal static class Program
 {
@@ -45,12 +46,19 @@ internal static class Program
         if (args.Length != 2)
             return Fail(InvalidArguments, "usage: classdata-check <classdata.tpk>");
 
-        using var manager = new AssetsManager();
-        manager.LoadClassPackage(args[1]);
-        if (manager.ClassPackage is null)
-            return Fail(OperationFailed, "AssetsTools.NET did not load the class package.");
-        Console.Out.Write("{\"ok\":true}");
-        return Success;
+        var manager = new AssetsManager();
+        try
+        {
+            manager.LoadClassPackage(args[1]);
+            if (manager.ClassPackage is null)
+                return Fail(OperationFailed, "AssetsTools.NET did not load the class package.");
+            Console.Out.Write("{\"ok\":true}");
+            return Success;
+        }
+        finally
+        {
+            manager.UnloadAll(true);
+        }
     }
 
     private static string JsonString(string value)
