@@ -19,14 +19,27 @@ public sealed class BridgeDocument : IDisposable
         this.bundleFile = bundleFile;
     }
 
-    public static BridgeDocument Open(string path)
+    public static BridgeDocument Open(string path, string? classDatabasePath = null)
     {
         if (!File.Exists(path))
             throw new FileNotFoundException("Input file was not found.", path);
 
-        var manager = new AssetsManager();
+        var manager = new AssetsManager
+        {
+            UseTemplateFieldCache = true,
+            UseMonoTemplateFieldCache = true,
+            UseRefTypeManagerCache = true,
+            UseQuickLookup = true
+        };
         try
         {
+            if (!string.IsNullOrWhiteSpace(classDatabasePath))
+            {
+                if (!File.Exists(classDatabasePath))
+                    throw new FileNotFoundException("The Unity class database was not found.", classDatabasePath);
+                manager.LoadClassPackage(classDatabasePath);
+            }
+
             if (IsBundle(path))
             {
                 var bundle = manager.LoadBundleFile(path, true) ?? throw new InvalidDataException("AssetsTools.NET could not load the bundle.");
@@ -38,7 +51,7 @@ public sealed class BridgeDocument : IDisposable
         }
         catch
         {
-            manager.UnloadAll();
+            manager.UnloadAll(true);
             throw;
         }
     }
@@ -53,12 +66,14 @@ public sealed class BridgeDocument : IDisposable
                 if (index > 0) assets.Append(',');
                 var info = assetsFile.file.AssetInfos[index];
                 var typeId = info.GetTypeId(assetsFile.file);
+                var typeName = GetTypeName(typeId);
+                var displayName = GetDisplayName(info, typeName);
                 assets.Append("{\"fileName\":").Append(JsonString(Path.GetFileName(assetsFile.path)))
                     .Append(",\"pathId\":").Append(info.PathId)
                     .Append(",\"classId\":").Append(typeId)
                     .Append(",\"byteSize\":").Append(info.ByteSize)
-                    .Append(",\"assetType\":").Append(JsonString(typeId.ToString(CultureInfo.InvariantCulture)))
-                    .Append(",\"name\":null}");
+                    .Append(",\"assetType\":").Append(JsonString(typeName))
+                    .Append(",\"name\":").Append(JsonString(displayName)).Append('}');
             }
             assets.Append(']');
             return "{\"info\":{\"path\":" + JsonString(assetsFile.path) + ",\"kind\":\"serializedFile\",\"assetCount\":" + assetsFile.file.AssetInfos.Count + ",\"unityVersion\":" + JsonString(assetsFile.file.Metadata.UnityVersion) + "},\"assets\":" + assets + "}";
@@ -92,13 +107,15 @@ public sealed class BridgeDocument : IDisposable
             if (index > 0) objects.Append(',');
             var info = assetsFile.file.AssetInfos[index];
             var typeId = info.GetTypeId(assetsFile.file);
+            var typeName = GetTypeName(typeId);
+            var displayName = GetDisplayName(info, typeName);
             objects.Append("{\"id\":").Append(JsonString($"{info.PathId}:{typeId}"))
                 .Append(",\"pathID\":").Append(info.PathId)
                 .Append(",\"typeID\":").Append(typeId)
                 .Append(",\"byteOffset\":").Append((ulong)info.GetAbsoluteByteOffset(assetsFile.file.Header))
                 .Append(",\"byteSize\":").Append((ulong)info.ByteSize)
-                .Append(",\"typeName\":").Append(JsonString(typeId.ToString(CultureInfo.InvariantCulture)))
-                .Append(",\"displayName\":").Append(JsonString($"{typeId} • {info.PathId}"))
+                .Append(",\"typeName\":").Append(JsonString(typeName))
+                .Append(",\"displayName\":").Append(JsonString(displayName))
                 .Append('}');
         }
         objects.Append(']');
@@ -109,10 +126,10 @@ public sealed class BridgeDocument : IDisposable
     {
         if (assetsFile is null) throw new InvalidOperationException("Fields are available only for serialized files.");
         var info = assetsFile.file.GetAssetInfo(pathId) ?? throw new KeyNotFoundException($"Asset {pathId} was not found.");
-        var field = manager.GetBaseField(assetsFile, info);
+        var field = manager.GetBaseField(assetsFile, info) ?? throw new InvalidDataException("This object has no readable TypeTree or class-database definition.");
         var fields = new StringBuilder("[");
         var result = new FieldResult(fields);
-        Flatten(field, field.FieldName, 0, result);
+        Flatten(field, string.Empty, 0, result);
         fields.Append(']');
         return "{\"fields\":" + fields + "}";
     }
@@ -121,7 +138,7 @@ public sealed class BridgeDocument : IDisposable
     {
         if (assetsFile is null) throw new InvalidOperationException("Field updates are available only for serialized files.");
         var info = assetsFile.file.GetAssetInfo(pathId) ?? throw new KeyNotFoundException($"Asset {pathId} was not found.");
-        var field = manager.GetBaseField(assetsFile, info);
+        var field = manager.GetBaseField(assetsFile, info) ?? throw new InvalidDataException("This object has no readable TypeTree or class-database definition.");
         var target = field[fieldPath];
         if (target.IsDummy) throw new KeyNotFoundException($"Field {fieldPath} was not found.");
         SetValue(target, value);
@@ -164,10 +181,11 @@ public sealed class BridgeDocument : IDisposable
     {
         if (field.Children.Count == 0)
         {
+            var fieldPath = string.IsNullOrEmpty(path) ? field.FieldName : path;
             if (!result.IsFirst) result.Builder.Append(',');
             result.IsFirst = false;
-            result.Builder.Append("{\"id\":").Append(JsonString(path))
-                .Append(",\"name\":").Append(JsonString(path))
+            result.Builder.Append("{\"id\":").Append(JsonString(fieldPath))
+                .Append(",\"name\":").Append(JsonString(fieldPath))
                 .Append(",\"type\":").Append(JsonString(field.TypeName))
                 .Append(",\"value\":").Append(JsonString(field.AsString))
                 .Append(",\"depth\":").Append(depth)
@@ -175,7 +193,33 @@ public sealed class BridgeDocument : IDisposable
                 .Append('}');
             return;
         }
-        foreach (var child in field.Children) Flatten(child, $"{path}.{child.FieldName}", depth + 1, result);
+        foreach (var child in field.Children)
+        {
+            var childPath = string.IsNullOrEmpty(path) ? child.FieldName : $"{path}.{child.FieldName}";
+            Flatten(child, childPath, depth + 1, result);
+        }
+    }
+
+    private string GetTypeName(int typeId)
+    {
+        var type = manager.ClassDatabase?.FindAssetClassByID(typeId);
+        return type is null ? typeId.ToString(CultureInfo.InvariantCulture) : manager.ClassDatabase!.GetString(type.Name);
+    }
+
+    private string GetDisplayName(AssetFileInfo info, string typeName)
+    {
+        if (manager.ClassDatabase is not null)
+        {
+            try
+            {
+                var name = AssetHelper.GetAssetNameFast(assetsFile!.file, manager.ClassDatabase, info);
+                if (!string.IsNullOrWhiteSpace(name)) return name;
+            }
+            catch
+            {
+            }
+        }
+        return $"{typeName} • {info.PathId}";
     }
 
     private static void SetValue(AssetTypeValueField field, string value)
@@ -246,7 +290,10 @@ public static class BridgeApi
         var root = document.RootElement;
         var operation = root.GetProperty("operation").GetString() ?? throw new InvalidDataException("Missing operation.");
         var path = root.GetProperty("path").GetString() ?? throw new InvalidDataException("Missing path.");
-        using var opened = BridgeDocument.Open(path);
+        var classDatabasePath = root.TryGetProperty("classDatabasePath", out var classDatabase)
+            ? classDatabase.GetString()
+            : null;
+        using var opened = BridgeDocument.Open(path, classDatabasePath);
         var result = operation switch
         {
             "inspect" => opened.Inspect(),

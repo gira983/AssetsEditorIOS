@@ -66,7 +66,6 @@ struct AssetBundleParser {
         guard formatVersion >= 6 else { throw AssetBundleError.malformed("unsupported bundle version") }
         let generationVersion = try reader.readCString()
         let unityVersion = try reader.readCString()
-        if formatVersion >= 7 { try reader.align(16) }
         let fileSize = try reader.readInt64BE()
         guard fileSize >= 0 else { throw AssetBundleError.malformed("negative file size") }
         let blockInfoCompressedSize = UInt64(try reader.readUInt32BE())
@@ -108,27 +107,28 @@ struct AssetBundleParser {
         } else {
             bundleCompression = .mixed
         }
-        let blockDataOffset: Int
-        if flags & 0x80 != 0 {
-            blockDataOffset = headerEnd
-        } else {
-            guard let rawDataOffset = checkedAdd(Int64(headerEnd), Int64(blockInfoCompressedSize)) else { throw AssetBundleError.malformed("invalid data offset") }
-            let dataOffset = Int(rawDataOffset)
-            blockDataOffset = flags & 0x200 != 0 ? (dataOffset + 15) & ~15 : dataOffset
-        }
+        let blockDataOffset = fileDataOffset(
+            formatVersion: formatVersion,
+            headerEnd: headerEnd,
+            flags: flags,
+            blockInfoCompressedSize: blockInfoCompressedSize
+        )
         guard blockDataOffset >= 0, blockDataOffset <= data.count else { throw AssetBundleError.malformed("invalid block data offset") }
         let uncompressedData = try decodeData(data: data, dataOffset: blockDataOffset, blocks: blocks)
         let info = AssetBundleInfo(signature: signature, formatVersion: formatVersion, unityVersion: unityVersion, unityRevision: generationVersion, compressed: bundleCompression != .none, compressionType: bundleCompression, fileSize: UInt64(fileSize), blockInfoCompressedSize: blockInfoCompressedSize, blockInfoDecompressedSize: blockInfoDecompressedSize, blockCount: blocks.count, directoryEntryCount: directory.entries.count, directoryEntries: directory.entries)
         return ParsedBundle(info: info, entries: directory.entries, uncompressedData: uncompressedData)
     }
 
-    private func headerDataOffset(version: UInt32, generationVersion: String, unityVersion: String, signature: String, flags: UInt32, compressedSize: Int64) -> Int {
-        var value = generationVersion.utf8.count + unityVersion.utf8.count + 0x1A
-        if flags & 0x200 != 0 { value += 0x0A } else { value += signature.utf8.count + 1 }
-        if version >= 7 { value = (value + 15) & ~15 }
-        if flags & 0x80 == 0 { value += Int(compressedSize) }
-        if flags & 0x100 != 0 { value = (value + 15) & ~15 }
-        return value
+    private func fileDataOffset(formatVersion: UInt32, headerEnd: Int, flags: UInt32, blockInfoCompressedSize: UInt64) -> Int {
+        var offset = formatVersion >= 7 ? (headerEnd + 15) & ~15 : headerEnd
+        if flags & 0x80 == 0 {
+            guard blockInfoCompressedSize <= UInt64(Int.max - offset) else { return Int.max }
+            offset += Int(blockInfoCompressedSize)
+        }
+        if flags & 0x200 != 0 {
+            offset = (offset + 15) & ~15
+        }
+        return offset
     }
 
     private func compressionType(_ value: UInt32) -> AssetBundleCompressionType {

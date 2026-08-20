@@ -47,6 +47,17 @@ jobs:
       - name: Verify upstream AssetsTools.NET APIs
         run: .github/scripts/inspect-assetstools-api.sh
 
+      - name: Download AssetsTools.NET class database
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/nesrak1/UABEA/057e2f6ae67ebc94a38faca9f946f8577162fa99/ReleaseFiles/classdata.tpk \
+            --output Bridge/classdata.tpk
+          test -s Bridge/classdata.tpk
+          printf '%s  %s\n' \
+            129e1f80f930415db6779fe6089afa75280cb51462bcee812beab6cd81a764c6 \
+            Bridge/classdata.tpk | shasum -a 256 -c -
+
       - name: Build managed AssetsTools worker
         run: >-
           dotnet publish Bridge/AssetToolsBridge.Managed/AssetToolsBridge.Managed.csproj
@@ -127,6 +138,7 @@ jobs:
         run: |
           set -euo pipefail
           WORKER="$RUNNER_TEMP/AssetsToolsBridgeManaged/AssetToolsBridge.Managed"
+          "$WORKER" classdata-check Bridge/classdata.tpk
           FIXTURE="$RUNNER_TEMP/bridge-fixture.assets"
           python3 - "$FIXTURE" <<'PYTHON'
           import struct, sys
@@ -172,10 +184,11 @@ jobs:
           xcodebuild -version
           xcrun swift --version
 
-      - name: Verify bridge sources are tracked
+      - name: Verify bridge inputs are tracked
         run: |
           test -f Bridge/AssetToolsBridge.Managed/AssetToolsBridge.Managed.csproj
           test -f Bridge/AssetToolsBridge.Managed/Program.cs
+          test -f Bridge/classdata.tpk
 
       - name: List available schemes
         run: xcodebuild -list -project UnityAssetEditor.xcodeproj

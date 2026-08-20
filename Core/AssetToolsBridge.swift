@@ -118,8 +118,16 @@ final class AssetToolsBridge {
         ])
     }
 
+    func inspectRequest(for url: URL) throws -> [String: Any] {
+        try execute(["operation": "inspect", "path": url.path])
+    }
+
     private func execute(_ request: [String: Any]) throws -> [String: Any] {
         try initialize()
+        var request = request
+        if let classDatabasePath = Bundle.main.url(forResource: "classdata", withExtension: "tpk")?.path {
+            request["classDatabasePath"] = classDatabasePath
+        }
         let data = try JSONSerialization.data(withJSONObject: request, options: [])
         let responseString: String = try data.withUnsafeBytes { rawBuffer in
             guard let baseAddress = rawBuffer.baseAddress else {
